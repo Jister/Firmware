@@ -97,6 +97,8 @@
 #include <uORB/topics/airspeed.h>
 #include <uORB/topics/rc_parameter_map.h>
 
+ #include <uORB/topics/laser_msg.h>
+
 /**
  * Analog layout:
  * FMU:
@@ -218,7 +220,8 @@ private:
 	int		_vcontrol_mode_sub;			/**< vehicle control mode subscription */
 	int 		_params_sub;			/**< notification of parameter updates */
 	int		_rc_parameter_map_sub;			/**< rc parameter map subscription */
-	int 		_manual_control_sub;			/**< notification of manual control updates */
+	int 		_manual_control_sub;
+	int                                                    _laser_sub; 			/**< notification of manual control updates */
 
 	orb_advert_t	_sensor_pub;			/**< combined sensor data topic */
 	orb_advert_t	_manual_control_pub;		/**< manual control signal topic */
@@ -236,7 +239,10 @@ private:
 	struct differential_pressure_s _diff_pres;
 	struct airspeed_s _airspeed;
 	struct rc_parameter_map_s _rc_parameter_map;
-	float _param_rc_values[RC_PARAM_MAP_NCHAN];	/**< parameter values for RC control */
+	float _param_rc_values[RC_PARAM_MAP_NCHAN];                       /**< parameter values for RC control */
+
+	struct laser_msg_s _laser_msg;
+	struct manual_control_setpoint_s _manual_control;	
 
 	math::Matrix<3, 3>	_board_rotation;	/**< rotation matrix for the orientation that the board is mounted */
 	math::Matrix<3, 3>	_mag_rotation[3];		/**< rotation matrix for the orientation that the external mag0 is mounted */
@@ -458,6 +464,11 @@ private:
 	 */
 	void		adc_poll(struct sensor_combined_s &raw);
 
+
+	void                                                 laser_poll();
+
+	void		manual_control_poll();
+
 	/**
 	 * Shim for calling task_main from task_create.
 	 */
@@ -501,6 +512,7 @@ Sensors::Sensors() :
 	_params_sub(-1),
 	_rc_parameter_map_sub(-1),
 	_manual_control_sub(-1),
+	_laser_sub(-1),
 
 	/* publications */
 	_sensor_pub(nullptr),
@@ -1991,12 +2003,23 @@ Sensors::rc_poll()
 			struct manual_control_setpoint_s manual;
 			memset(&manual, 0 , sizeof(manual));
 
+			if((_laser_msg.laser_distance>100)&&(_laser_msg.laser_distance<1200)&&(_manual_control.loiter_switch==3))
+			{
+				
+				manual.y = - 0.3* cos(double(_laser_msg.laser_angle)/180*M_PI - M_PI_4);
+				manual.x = - 0.3* sin(double(_laser_msg.laser_angle)/180*M_PI  - M_PI_4);	
+
+			}else
+			{
+				
+				manual.y = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_ROLL, -1.0, 1.0);
+			                            manual.x = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_PITCH, -1.0, 1.0);
+			}
+
 			/* fill values in manual_control_setpoint topic only if signal is valid */
 			manual.timestamp = rc_input.timestamp_last_signal;
 
 			/* limit controls */
-			manual.y = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_ROLL, -1.0, 1.0);
-			manual.x = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_PITCH, -1.0, 1.0);
 			manual.r = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_YAW, -1.0, 1.0);
 			manual.z = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_THROTTLE, 0.0, 1.0);
 			manual.flaps = get_rc_value (rc_channels_s::RC_CHANNELS_FUNCTION_FLAPS, -1.0, 1.0);
@@ -2057,6 +2080,30 @@ Sensors::rc_poll()
 }
 
 void
+Sensors::laser_poll()
+{
+	bool updated;
+
+	orb_check(_laser_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(laser_msg), _laser_sub, &_laser_msg);
+	}
+}
+
+void
+Sensors::manual_control_poll()
+{
+	bool updated;
+
+	orb_check(_manual_control_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(manual_control_setpoint), _manual_control_sub, &_manual_control);
+	}
+}
+
+void
 Sensors::task_main_trampoline(int argc, char *argv[])
 {
 	sensors::g_sensors->task_main();
@@ -2112,12 +2159,16 @@ Sensors::task_main()
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 	_rc_parameter_map_sub = orb_subscribe(ORB_ID(rc_parameter_map));
 	_manual_control_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
+	_laser_sub = orb_subscribe(ORB_ID(laser_msg));
 
 	/* rate limit vehicle status updates to 5Hz */
 	orb_set_interval(_vcontrol_mode_sub, 200);
 
 	/* rate limit gyro to 250 Hz (the gyro signal is lowpassed accordingly earlier) */
 	orb_set_interval(_gyro_sub, 4);
+
+	orb_set_interval(_laser_sub, 75);
+	orb_set_interval(_manual_control_sub, 75);
 
 	/*
 	 * do advertisements
@@ -2228,6 +2279,8 @@ Sensors::task_main()
 		rc_parameter_map_poll();
 
 		/* Look for new r/c input data */
+		manual_control_poll();
+		laser_poll();
 		rc_poll();
 
 		perf_end(_loop_perf);
