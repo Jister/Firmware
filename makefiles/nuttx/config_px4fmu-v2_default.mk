@@ -137,6 +137,9 @@ MODULES		+= examples/flow_position_estimator
 #
 MODULES		+= examples/rover_steering_control
 
+#Own apps
+MODULES		+= modules/serial_test
+
 #
 # Demo apps
 #
