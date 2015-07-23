@@ -11,3 +11,6 @@ set MIXER hexa_x
 
 # Need to set all 8 channels
 set PWM_OUT 12345678
+
+set PWM_MIN 1200
+set PWM_MAX 2000

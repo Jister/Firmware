@@ -310,12 +310,12 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	};
 
 	float corr_sonar = 0.0f;
-	float corr_sonar_filtered = 0.0f;
+//	float corr_sonar_filtered = 0.0f;
 
 	float corr_flow[] = { 0.0f, 0.0f };	// N E
 	float w_flow = 0.0f;
 
-	float sonar_prev = 0.0f;
+//	float sonar_prev = 0.0f;
 	//hrt_abstime flow_prev = 0;			// time of last flow measurement
 	hrt_abstime sonar_time = 0;			// time of last sonar measurement (not filtered)
 	hrt_abstime sonar_valid_time = 0;	// time of last sonar measurement used for correction (filtered)
@@ -515,7 +515,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 				/* calculate time from previous update */
 //				float flow_dt = flow_prev > 0 ? (flow.flow_timestamp - flow_prev) * 1e-6f : 0.1f;
 //				flow_prev = flow.flow_timestamp;
-
+/*
 				if ((flow.ground_distance_m > 0.31f) &&
 					(flow.ground_distance_m < 4.0f) &&
 					(PX4_R(att.R, 2, 2) > 0.7f) &&
@@ -527,15 +527,15 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 					corr_sonar_filtered += (corr_sonar - corr_sonar_filtered) * params.sonar_filt;
 
 					if (fabsf(corr_sonar) > params.sonar_err) {
-						/* correction is too large: spike or new ground level? */
-						if (fabsf(corr_sonar - corr_sonar_filtered) > params.sonar_err) {
+*/						/* correction is too large: spike or new ground level? */
+//						if (fabsf(corr_sonar - corr_sonar_filtered) > params.sonar_err) {
 							/* spike detected, ignore */
-							corr_sonar = 0.0f;
+/*							corr_sonar = 0.0f;
 							sonar_valid = false;
 
 						} else {
-							/* new ground level */
-							surface_offset -= corr_sonar;
+*/							/* new ground level */
+/*							surface_offset -= corr_sonar;
 							surface_offset_rate = 0.0f;
 							corr_sonar = 0.0f;
 							corr_sonar_filtered = 0.0f;
@@ -546,11 +546,10 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 						}
 
 					} else {
-						/* correction is ok, use it */
-						sonar_valid_time = t;
-						sonar_valid = true;
-					}
-				}
+*/						/* correction is ok, use it */
+//						sonar_valid = true;
+//					}
+//				}
 
 				float flow_q = flow.quality / 255.0f;
 				float dist_bottom = - z_est[0] - surface_offset;
@@ -614,7 +613,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 				}
 
 				flow_updates++;
-			}
+			}  
 
 			/* home position */
 			orb_check(home_position_sub, &updated);

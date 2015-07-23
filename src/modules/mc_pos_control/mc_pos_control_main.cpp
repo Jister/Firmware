@@ -76,6 +76,7 @@
 #include <uORB/topics/position_setpoint_triplet.h>
 #include <uORB/topics/vehicle_global_velocity_setpoint.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
+ #include <uORB/topics/optical_flow.h>
 
 #include <systemlib/systemlib.h>
 #include <mathlib/mathlib.h>
@@ -87,6 +88,7 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
+ #define SONAR_SP          2.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -133,6 +135,7 @@ private:
 	int		_pos_sp_triplet_sub;	/**< position setpoint triplet */
 	int		_local_pos_sp_sub;		/**< offboard local position setpoint */
 	int		_global_vel_sp_sub;		/**< offboard global velocity setpoint */
+	int                                                   _optical_flow_sub;
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -148,6 +151,7 @@ private:
 	struct position_setpoint_triplet_s		_pos_sp_triplet;	/**< vehicle global position setpoint triplet */
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;	/**< vehicle global velocity setpoint */
+	struct optical_flow_s                                                _optical_flow;
 
 
 	struct {
@@ -197,6 +201,10 @@ private:
 	struct map_projection_reference_s _ref_pos;
 	float _ref_alt;
 	hrt_abstime _ref_timestamp;
+
+	float sonar;
+	float sonar_p;
+	float sonar_pp;
 
 	bool _reset_pos_sp;
 	bool _reset_alt_sp;
@@ -308,6 +316,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_local_pos_sub(-1),
 	_pos_sp_triplet_sub(-1),
 	_global_vel_sp_sub(-1),
+	_optical_flow_sub(-1),
 
 /* publications */
 	_att_sp_pub(nullptr),
@@ -316,6 +325,10 @@ MulticopterPositionControl::MulticopterPositionControl() :
 
 	_ref_alt(0.0f),
 	_ref_timestamp(0),
+
+	sonar(0.0f),
+	sonar_p(0.0f),
+	sonar_pp(0.0f),
 
 	_reset_pos_sp(true),
 	_reset_alt_sp(true),
@@ -331,6 +344,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	memset(&_pos_sp_triplet, 0, sizeof(_pos_sp_triplet));
 	memset(&_local_pos_sp, 0, sizeof(_local_pos_sp));
 	memset(&_global_vel_sp, 0, sizeof(_global_vel_sp));
+	memset(&_optical_flow, 0, sizeof(_optical_flow));
 
 	memset(&_ref_pos, 0, sizeof(_ref_pos));
 
@@ -518,6 +532,12 @@ MulticopterPositionControl::poll_subscriptions()
 	if (updated) {
 		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
 	}
+
+	orb_check(_optical_flow_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(optical_flow), _optical_flow_sub, &_optical_flow);
+	}
 }
 
 float
@@ -617,11 +637,22 @@ MulticopterPositionControl::limit_pos_sp_offset()
 void
 MulticopterPositionControl::control_manual(float dt)
 {
+	if(_optical_flow.ground_distance_m<0.01f){
+		sonar = sonar_p;
+	}else{
+		sonar = (_optical_flow.ground_distance_m + sonar_p + sonar_pp)/3.0f;
+	                            sonar_pp = sonar_p;
+	                            sonar_p = _optical_flow.ground_distance_m;
+	}
+	
 	_sp_move_rate.zero();
 
 	if (_control_mode.flag_control_altitude_enabled) {
 		/* move altitude setpoint with throttle stick */
 		_sp_move_rate(2) = -scale_control(_manual.z - 0.5f, 0.5f, alt_ctl_dz);
+		if(abs(sonar)<2.0f && abs(sonar)>0.1f){
+			_sp_move_rate(2)=0.0f;
+		}
 	}
 
 	if (_control_mode.flag_control_position_enabled) {
@@ -654,6 +685,10 @@ MulticopterPositionControl::control_manual(float dt)
 
 	/* feed forward setpoint move rate with weight vel_ff */
 	_vel_ff = _sp_move_rate.emult(_params.vel_ff);
+
+                            if(abs(sonar)<2.0f && abs(sonar)>0.1f){
+                            	_pos_sp(2) = _pos(2) +0.1f;
+	}
 
 	/* move position setpoint */
 	_pos_sp += _sp_move_rate * dt;
@@ -923,6 +958,7 @@ MulticopterPositionControl::task_main()
 	_pos_sp_triplet_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	_local_pos_sp_sub = orb_subscribe(ORB_ID(vehicle_local_position_setpoint));
 	_global_vel_sp_sub = orb_subscribe(ORB_ID(vehicle_global_velocity_setpoint));
+	_optical_flow_sub = orb_subscribe(ORB_ID(optical_flow));
 
 
 	parameters_update(true);
