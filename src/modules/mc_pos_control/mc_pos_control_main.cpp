@@ -89,6 +89,9 @@
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
  #define SONAR_SP          2.0f
+ #define P_SONAR            0.8f
+ #define I_SONAR             0.02f
+ #define D_SONAR            0.005f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -205,6 +208,9 @@ private:
 	float sonar;
 	float sonar_p;
 	float sonar_pp;
+	float error_sonar;
+	float error_sonar_pre;
+	float error_sonar_sum;
 
 	bool _reset_pos_sp;
 	bool _reset_alt_sp;
@@ -329,6 +335,9 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	sonar(0.0f),
 	sonar_p(0.0f),
 	sonar_pp(0.0f),
+	error_sonar(0.0f),
+	error_sonar_pre(0.0f),
+	error_sonar_sum(0.0f),
 
 	_reset_pos_sp(true),
 	_reset_alt_sp(true),
@@ -637,6 +646,8 @@ MulticopterPositionControl::limit_pos_sp_offset()
 void
 MulticopterPositionControl::control_manual(float dt)
 {
+	float sonar_ctl;
+
 	if(_optical_flow.ground_distance_m<0.01f){
 		sonar = sonar_p;
 	}else{
@@ -644,14 +655,24 @@ MulticopterPositionControl::control_manual(float dt)
 	                            sonar_pp = sonar_p;
 	                            sonar_p = _optical_flow.ground_distance_m;
 	}
-	
+	error_sonar_pre = error_sonar;
+	error_sonar = SONAR_SP - sonar;
+	error_sonar_sum += error_sonar;
+
 	_sp_move_rate.zero();
 
 	if (_control_mode.flag_control_altitude_enabled) {
 		/* move altitude setpoint with throttle stick */
 		_sp_move_rate(2) = -scale_control(_manual.z - 0.5f, 0.5f, alt_ctl_dz);
-		if(abs(sonar)<2.0f && abs(sonar)>0.1f){
-			_sp_move_rate(2)=0.0f;
+
+		if(_sp_move_rate(2) < 0.0001f && abs(sonar) < 3.0f && abs(sonar) > 0.01f){
+			sonar_ctl = error_sonar * P_SONAR + (error_sonar - error_sonar_pre) / dt * D_SONAR + error_sonar_sum * dt * I_SONAR;
+			if(sonar_ctl > 0.5f){
+				sonar_ctl = 0.5f;
+			}else if(sonar_ctl<-0.5f){
+				sonar_ctl = -0.5f;
+			}
+			_sp_move_rate(2) = sonar_ctl;
 		}
 	}
 
@@ -686,9 +707,9 @@ MulticopterPositionControl::control_manual(float dt)
 	/* feed forward setpoint move rate with weight vel_ff */
 	_vel_ff = _sp_move_rate.emult(_params.vel_ff);
 
-                            if(abs(sonar)<2.0f && abs(sonar)>0.1f){
-                            	_pos_sp(2) = _pos(2) +0.1f;
-	}
+//                            if(abs(sonar)<2.0f && abs(sonar)>0.1f){
+//                            	_pos_sp(2) = _pos(2) +0.1f;
+//	}
 
 	/* move position setpoint */
 	_pos_sp += _sp_move_rate * dt;
