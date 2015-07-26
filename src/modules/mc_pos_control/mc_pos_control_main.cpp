@@ -207,7 +207,10 @@ private:
 
 	float sonar;
 	float sonar_p;
-	float sonar_pp;
+	float sonar_l;
+	float sonar_ll;
+	float sonar_lll;
+	float sonar_llll;
 	float error_sonar;
 	float error_sonar_pre;
 	float error_sonar_sum;
@@ -334,7 +337,10 @@ MulticopterPositionControl::MulticopterPositionControl() :
 
 	sonar(0.0f),
 	sonar_p(0.0f),
-	sonar_pp(0.0f),
+	sonar_l(0.0f),
+	sonar_ll(0.0f),
+	sonar_lll(0.0f),
+	sonar_llll(0.0f),
 	error_sonar(0.0f),
 	error_sonar_pre(0.0f),
 	error_sonar_sum(0.0f),
@@ -648,13 +654,25 @@ MulticopterPositionControl::control_manual(float dt)
 {
 	float sonar_ctl;
 
-	if(_optical_flow.ground_distance_m<0.01f){
-		sonar = sonar_p;
-	}else{
-		sonar = (_optical_flow.ground_distance_m + sonar_p + sonar_pp)/3.0f;
-	                            sonar_pp = sonar_p;
-	                            sonar_p = _optical_flow.ground_distance_m;
+	sonar_p = sonar;
+	sonar = _optical_flow.ground_distance_m;
+
+	if(sonar_llll<0.001f && sonar_lll<0.001f && sonar_ll<0.001f 
+		&& sonar_l<0.001f && _optical_flow.ground_distance_m<0.001f){
+		sonar = _optical_flow.ground_distance_m;
 	}
+	if(sonar_l>0.0f && sonar_ll>0.0f && _optical_flow.ground_distance_m<0.001f){
+		sonar = sonar_p;
+	}
+	if(sonar_l>0.0f && sonar_ll>0.0f && _optical_flow.ground_distance_m>0.0f){
+		sonar = (_optical_flow.ground_distance_m + sonar_l+ sonar_ll)/3.0f;
+	}
+
+	sonar_llll = sonar_lll;
+	sonar_lll = sonar_ll;
+	sonar_ll = sonar_l;
+	sonar_l = _optical_flow.ground_distance_m;
+
 	error_sonar_pre = error_sonar;
 	error_sonar = SONAR_SP - sonar;
 	error_sonar_sum += error_sonar;

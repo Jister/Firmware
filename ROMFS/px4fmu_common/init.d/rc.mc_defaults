@@ -18,7 +18,7 @@ fi
 
 set PWM_RATE 400
 set PWM_DISARMED 900
-set PWM_MIN 1075
+set PWM_MIN 1150
 set PWM_MAX 2000
 
 # This is the gimbal pass mixer
