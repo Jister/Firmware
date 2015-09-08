@@ -106,6 +106,7 @@
 #include <systemlib/param/param.h>
 #include <systemlib/perf_counter.h>
 #include <systemlib/git_version.h>
+#include <systemlib/printload.h>
 #include <version/version.h>
 
 #include <mavlink/mavlink_log.h>
@@ -200,7 +201,8 @@ static unsigned long log_msgs_written = 0;
 static unsigned long log_msgs_skipped = 0;
 
 /* GPS time, used for log files naming */
-static uint64_t gps_time = 0;
+static uint64_t gps_time_sec = 0;
+static bool has_gps_3d_fix = false;
 
 /* current state of logging */
 static bool logging_enabled = false;
@@ -229,6 +231,7 @@ static void *logwriter_thread(void *arg);
 __EXPORT int sdlog2_main(int argc, char *argv[]);
 
 static bool copy_if_updated(orb_id_t topic, int *handle, void *buffer);
+static bool copy_if_updated_multi(orb_id_t topic, int multi_instance, int *handle, void *buffer);
 
 /**
  * Mainloop of sd log deamon.
@@ -346,7 +349,20 @@ int sdlog2_main(int argc, char *argv[])
 						 3000,
 						 sdlog2_thread_main,
 						 (char * const *)argv);
-		return 0;
+
+		/* wait for the task to launch */
+		unsigned const max_wait_us = 1000000;
+		unsigned const max_wait_steps = 2000;
+
+		unsigned i;
+		for (i = 0; i < max_wait_steps; i++) {
+			usleep(max_wait_us / max_wait_steps);
+			if (thread_running) {
+				break;
+			}
+		}
+
+		return !(i < max_wait_steps);
 	}
 
 	if (!strcmp(argv[1], "stop")) {
@@ -398,13 +414,13 @@ bool get_log_time_utc_tt(struct tm *tt, bool boot_time) {
 	/* use RTC time for log file naming, e.g. /fs/microsd/2014-01-19/19_37_52.px4log */
 	time_t utc_time_sec;
 
-	if (_gpstime_only) {
-		utc_time_sec = gps_time / 1e6;
+	if (_gpstime_only && has_gps_3d_fix) {
+		utc_time_sec = gps_time_sec;
 	} else {
 		utc_time_sec = ts.tv_sec + (ts.tv_nsec / 1e9);
 	}
-	if (utc_time_sec > PX4_EPOCH_SECS) {
 
+	if (utc_time_sec > PX4_EPOCH_SECS) {
 		/* strip the time elapsed since boot */
 		if (boot_time) {
 			utc_time_sec -= hrt_absolute_time() / 1e6;
@@ -506,7 +522,11 @@ int open_log_file()
 		}
 	}
 
+#ifdef __PX4_NUTTX
+	int fd = open(log_file_path, O_CREAT | O_WRONLY | O_DSYNC);
+#else
 	int fd = open(log_file_path, O_CREAT | O_WRONLY | O_DSYNC, PX4_O_MODE_666);
+#endif
 
 	if (fd < 0) {
 		mavlink_and_console_log_critical(mavlink_fd, "[sdlog2] failed opening: %s", log_file_name);
@@ -554,7 +574,11 @@ int open_perf_file(const char* str)
 		}
 	}
 
+#ifdef __PX4_NUTTX
+	int fd = open(log_file_path, O_CREAT | O_WRONLY | O_DSYNC);
+#else
 	int fd = open(log_file_path, O_CREAT | O_WRONLY | O_DSYNC, 0x0777);
+#endif
 
 	if (fd < 0) {
 		mavlink_and_console_log_critical(mavlink_fd, "[sdlog2] failed opening: %s", log_file_name);
@@ -715,9 +739,16 @@ void sdlog2_start_log()
 	}
 
 	/* write all performance counters */
+	hrt_abstime curr_time = hrt_absolute_time();
+	struct print_load_s load;
 	int perf_fd = open_perf_file("preflight");
+	init_print_load_s(curr_time, &load);
+	print_load(curr_time, perf_fd, &load);
 	dprintf(perf_fd, "PERFORMANCE COUNTERS PRE-FLIGHT\n\n");
 	perf_print_all(perf_fd);
+	dprintf(perf_fd, "\nLOAD PRE-FLIGHT\n\n");
+	usleep(500 * 1000);
+	print_load(hrt_absolute_time(), perf_fd, &load);
 	close(perf_fd);
 
 	/* reset performance counters to get in-flight min and max values in post flight log */
@@ -753,8 +784,15 @@ void sdlog2_stop_log()
 
 	/* write all performance counters */
 	int perf_fd = open_perf_file("postflight");
+	hrt_abstime curr_time = hrt_absolute_time();
 	dprintf(perf_fd, "PERFORMANCE COUNTERS POST-FLIGHT\n\n");
 	perf_print_all(perf_fd);
+	struct print_load_s load;
+	dprintf(perf_fd, "\nLOAD POST-FLIGHT\n\n");
+	init_print_load_s(curr_time, &load);
+	print_load(curr_time, perf_fd, &load);
+	sleep(1);
+	print_load(hrt_absolute_time(), perf_fd, &load);
 	close(perf_fd);
 
 	/* free log writer performance counter */
@@ -845,10 +883,15 @@ int write_parameters(int fd)
 
 bool copy_if_updated(orb_id_t topic, int *handle, void *buffer)
 {
+	return copy_if_updated_multi(topic, 0, handle, buffer);
+}
+
+bool copy_if_updated_multi(orb_id_t topic, int multi_instance, int *handle, void *buffer)
+{
 	bool updated = false;
 
 	if (*handle < 0) {
-		if (OK == orb_exists(topic, 0)) {
+		if (OK == orb_exists(topic, multi_instance)) {
 			*handle = orb_subscribe(topic);
 			/* copy first data */
 			if (*handle >= 0) {
@@ -962,7 +1005,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		sdlog2_usage(NULL);
 	}
 
-	gps_time = 0;
+	gps_time_sec = 0;
 
 	/* interpret logging params */
 
@@ -1175,7 +1218,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int esc_sub;
 		int global_vel_sp_sub;
 		int battery_sub;
-		int telemetry_subs[TELEMETRY_STATUS_ORB_ID_NUM];
+		int telemetry_subs[ORB_MULTI_MAX_INSTANCES];
 		int distance_sensor_sub;
 		int estimator_status_sub;
 		int tecs_status_sub;
@@ -1223,21 +1266,22 @@ int sdlog2_thread_main(int argc, char *argv[])
 	/* add new topics HERE */
 
 
-	for (unsigned i = 0; i < TELEMETRY_STATUS_ORB_ID_NUM; i++) {
+	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
 		subs.telemetry_subs[i] = -1;
 	}
 	
 	subs.sat_info_sub = -1;
 
-	/* close non-needed fd's */
+#ifdef __PX4_NUTTX
+	/* close non-needed fd's. We cannot do this for posix since the file
+	   descriptors will also be closed for the parent process
+	*/
 
 	/* close stdin */
 	close(0);
 	/* close stdout */
 	close(1);
-
-	thread_running = true;
-
+#endif
 	/* initialize thread synchronization */
 	pthread_mutex_init(&logbuffer_mutex, NULL);
 	pthread_cond_init(&logbuffer_cond, NULL);
@@ -1264,12 +1308,15 @@ int sdlog2_thread_main(int argc, char *argv[])
 		/* check GPS topic to get GPS time */
 		if (log_name_timestamp) {
 			if (!orb_copy(ORB_ID(vehicle_gps_position), subs.gps_pos_sub, &buf_gps_pos)) {
-				gps_time = buf_gps_pos.time_utc_usec / 1e6;
+				gps_time_sec = buf_gps_pos.time_utc_usec / 1e6;
 			}
 		}
 
 		sdlog2_start_log();
 	}
+
+	/* running, report */
+	thread_running = true;
 
 	while (!main_thread_should_exit) {
 		usleep(sleep_delay);
@@ -1292,7 +1339,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		bool gps_pos_updated = copy_if_updated(ORB_ID(vehicle_gps_position), &subs.gps_pos_sub, &buf_gps_pos);
 
 		if (gps_pos_updated && log_name_timestamp) {
-			gps_time = buf_gps_pos.time_utc_usec / 1e6;
+			gps_time_sec = buf_gps_pos.time_utc_usec / 1e6;
+			has_gps_3d_fix = buf_gps_pos.fix_type == 3;
 		}
 
 		if (!logging_enabled) {
@@ -1808,8 +1856,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		}
 
 		/* --- TELEMETRY --- */
-		for (unsigned i = 0; i < TELEMETRY_STATUS_ORB_ID_NUM; i++) {
-			if (copy_if_updated(telemetry_status_orb_id[i], &subs.telemetry_subs[i], &buf.telemetry)) {
+		for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+			if (copy_if_updated_multi(ORB_ID(telemetry_status), i, &subs.telemetry_subs[i], &buf.telemetry)) {
 				log_msg.msg_type = LOG_TEL0_MSG + i;
 				log_msg.body.log_TEL.rssi = buf.telemetry.rssi;
 				log_msg.body.log_TEL.remote_rssi = buf.telemetry.remote_rssi;
@@ -1872,15 +1920,16 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_TECS.altitudeFiltered = buf.tecs_status.altitude_filtered;
 			log_msg.body.log_TECS.flightPathAngleSp = buf.tecs_status.flightPathAngleSp;
 			log_msg.body.log_TECS.flightPathAngle = buf.tecs_status.flightPathAngle;
-			log_msg.body.log_TECS.flightPathAngleFiltered = buf.tecs_status.flightPathAngleFiltered;
 			log_msg.body.log_TECS.airspeedSp = buf.tecs_status.airspeedSp;
 			log_msg.body.log_TECS.airspeedFiltered = buf.tecs_status.airspeed_filtered;
 			log_msg.body.log_TECS.airspeedDerivativeSp = buf.tecs_status.airspeedDerivativeSp;
 			log_msg.body.log_TECS.airspeedDerivative = buf.tecs_status.airspeedDerivative;
-			log_msg.body.log_TECS.totalEnergyRateSp = buf.tecs_status.totalEnergyRateSp;
-			log_msg.body.log_TECS.totalEnergyRate = buf.tecs_status.totalEnergyRate;
-			log_msg.body.log_TECS.energyDistributionRateSp = buf.tecs_status.energyDistributionRateSp;
-			log_msg.body.log_TECS.energyDistributionRate = buf.tecs_status.energyDistributionRate;
+			log_msg.body.log_TECS.totalEnergyError = buf.tecs_status.totalEnergyError;
+			log_msg.body.log_TECS.energyDistributionError = buf.tecs_status.energyDistributionError;
+			log_msg.body.log_TECS.totalEnergyRateError = buf.tecs_status.totalEnergyRateError;
+			log_msg.body.log_TECS.energyDistributionRateError = buf.tecs_status.energyDistributionRateError;
+			log_msg.body.log_TECS.throttle_integ = buf.tecs_status.throttle_integ;
+			log_msg.body.log_TECS.pitch_integ = buf.tecs_status.pitch_integ;
 			log_msg.body.log_TECS.mode = (uint8_t)buf.tecs_status.mode;
 			LOGBUFFER_WRITE_AND_COUNT(TECS);
 		}
@@ -1948,7 +1997,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 void sdlog2_status()
 {
 	warnx("extended logging: %s", (_extended_logging) ? "ON" : "OFF");
-	warnx("time: gps: %u seconds", (unsigned)gps_time);
+	warnx("time: gps: %u seconds", (unsigned)gps_time_sec);
 	if (!logging_enabled) {
 		warnx("not logging");
 	} else {

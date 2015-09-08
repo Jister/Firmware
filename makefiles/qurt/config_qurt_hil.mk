@@ -6,8 +6,9 @@
 # Board support modules
 #
 MODULES		+= drivers/device
+MODULES		+= drivers/boards/sitl
 #MODULES		+= drivers/blinkm
-MODULES		+= drivers/hil
+MODULES		+= drivers/pwm_out_sim
 MODULES		+= drivers/led
 MODULES		+= drivers/rgbled
 MODULES		+= modules/sensors
@@ -57,6 +58,7 @@ MODULES		+= lib/mathlib/math/filter
 MODULES		+= lib/geo
 MODULES		+= lib/geo_lookup
 MODULES		+= lib/conversion
+MODULES 	+= modules/controllib
 
 #
 # QuRT port

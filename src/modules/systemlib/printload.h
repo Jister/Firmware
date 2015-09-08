@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2013 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2015 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,26 +32,39 @@
  ****************************************************************************/
 
 /**
- * @file safety.h
+ * @file printload.h
  *
- * Safety topic to pass safety state from px4io driver to commander
- * This concerns only the safety button of the px4io but has nothing to do
- * with arming/disarming.
+ * Print the current system load.
+ *
+ * @author Lorenz Meier <lorenz@px4.io>
  */
 
-#ifndef TOPIC_SAFETY_H
-#define TOPIC_SAFETY_H
+#pragma once
 
+__BEGIN_DECLS
+
+#include <px4_config.h>
 #include <stdint.h>
-#include "../uORB.h"
 
-struct safety_s {
+#ifndef CONFIG_MAX_TASKS
+#define CONFIG_MAX_TASKS 64
+#endif
 
-	uint64_t	timestamp;
-	bool	safety_switch_available;	/**< Set to true if a safety switch is connected */
-	bool	safety_off;			/**< Set to true if safety is off */
+struct print_load_s {
+	uint64_t total_user_time;
+
+	int running_count;
+	int blocked_count;
+
+	uint64_t new_time;
+	uint64_t interval_start_time;
+	uint64_t last_times[CONFIG_MAX_TASKS];
+	float curr_loads[CONFIG_MAX_TASKS];
+	float interval_time_ms_inv;
 };
 
-ORB_DECLARE(safety);
+__EXPORT void init_print_load_s(uint64_t t, struct print_load_s *s);
 
-#endif
+__EXPORT void print_load(uint64_t t, int fd, struct print_load_s *print_state);
+
+__END_DECLS

@@ -47,6 +47,7 @@
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <drivers/device/device.h>
 #endif
 #include <systemlib/param/param.h>
@@ -147,7 +148,8 @@ public:
 		MAVLINK_MODE_NORMAL = 0,
 		MAVLINK_MODE_CUSTOM,
 		MAVLINK_MODE_ONBOARD,
-		MAVLINK_MODE_OSD
+		MAVLINK_MODE_OSD,
+		MAVLINK_MODE_CONFIG
 	};
 
 	void			set_mode(enum MAVLINK_MODE);
@@ -332,7 +334,9 @@ public:
 	unsigned short		get_network_port() { return _network_port; }
 
 	int 			get_socket_fd () { return _socket_fd; };
-
+#ifdef __PX4_POSIX
+	struct sockaddr_in * get_client_source_address() {return &_src_addr;};
+#endif
 	static bool		boot_complete() { return _boot_complete; }
 
 protected:
@@ -375,7 +379,6 @@ private:
 
 	bool			_verbose;
 	bool			_forwarding_on;
-	bool			_passing_on;
 	bool			_ftp_on;
 #ifndef __PX4_QURT
 	int			_uart_fd;

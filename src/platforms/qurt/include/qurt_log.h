@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012-2013 PX4 Development Team. All rights reserved.
+ * Copyright (C) 2015 Mark Charlebois. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,39 +30,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+#ifndef QURT_LOG_H
+#define QURT_LOG_H
 
-/**
- * @file multirotor_motor_limits.h
- *
- * Definition of multirotor_motor_limits  topic
- */
+#include <stdarg.h>
+#include <stdio.h>
 
-#ifndef MULTIROTOR_MOTOR_LIMITS_H_
-#define MULTIROTOR_MOTOR_LIMITS_H_
-
-#include "../uORB.h"
-#include <stdint.h>
-
-/**
- * @addtogroup topics
- * @{
- */
-
-/**
- * Motor limits
- */
-struct multirotor_motor_limits_s {
-	uint8_t lower_limit	: 1; // at least one actuator command has saturated on the lower limit
-	uint8_t upper_limit	: 1; // at least one actuator command has saturated on the upper limit
-	uint8_t yaw			: 1; // yaw limit reached
-	uint8_t reserved	: 5; // reserved
-};
-
-/**
- * @}
- */
-
-/* register this as object request broker structure */
-ORB_DECLARE(multirotor_motor_limits);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+//void qurt_log(int level, const char *file, int line, const char *format, ...);
+
+// declaration to make the compiler happy.  This symbol is part of the adsp static image.
+void HAP_debug(const char *msg, int level, const char *filename, int line);
+
+static __inline void qurt_log(int level, const char *file, int line,
+			      const char *format, ...)
+{
+	char buf[256];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buf, sizeof(buf), format, args);
+	va_end(args);
+	HAP_debug(buf, level, file, line);
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // QURT_LOG_H
+
