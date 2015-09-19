@@ -266,3 +266,6 @@ ORB_DEFINE(camera_trigger, struct camera_trigger_s);
 
 #include "topics/laser_msg.h"
 ORB_DEFINE(laser_msg, struct laser_msg_s);
+
+#include "topics/sonar.h"
+ORB_DEFINE(sonar, struct sonar_s);

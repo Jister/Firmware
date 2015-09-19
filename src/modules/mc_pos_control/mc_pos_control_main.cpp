@@ -76,6 +76,7 @@
 #include <uORB/topics/position_setpoint_triplet.h>
 #include <uORB/topics/vehicle_global_velocity_setpoint.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
+ #include <uORB/topics/sonar.h>
 
 #include <systemlib/systemlib.h>
 #include <mathlib/mathlib.h>
@@ -136,6 +137,7 @@ private:
 	int		_pos_sp_triplet_sub;		/**< position setpoint triplet */
 	int		_local_pos_sp_sub;		/**< offboard local position setpoint */
 	int		_global_vel_sp_sub;		/**< offboard global velocity setpoint */
+                            int		_sonar_sub;
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -151,6 +153,7 @@ private:
 	struct position_setpoint_triplet_s		_pos_sp_triplet;	/**< vehicle global position setpoint triplet */
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;		/**< vehicle global velocity setpoint */
+                            struct sonar_s	                                                        _sonar;
 
 	control::BlockParamFloat _manual_thr_min;
 	control::BlockParamFloat _manual_thr_max;
@@ -313,6 +316,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_local_pos_sub(-1),
 	_pos_sp_triplet_sub(-1),
 	_global_vel_sp_sub(-1),
+	_sonar_sub(-1),
 
 /* publications */
 	_att_sp_pub(nullptr),
@@ -337,6 +341,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	memset(&_pos_sp_triplet, 0, sizeof(_pos_sp_triplet));
 	memset(&_local_pos_sp, 0, sizeof(_local_pos_sp));
 	memset(&_global_vel_sp, 0, sizeof(_global_vel_sp));
+	memset(&_sonar,0, sizeof(_sonar));
 
 	memset(&_ref_pos, 0, sizeof(_ref_pos));
 
@@ -528,6 +533,12 @@ MulticopterPositionControl::poll_subscriptions()
 	if (updated) {
 		orb_copy(ORB_ID(vehicle_local_position), _local_pos_sub, &_local_pos);
 	}
+
+	orb_check(_sonar_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(sonar), _sonar_sub, &_sonar);
+	}
 }
 
 float
@@ -636,8 +647,69 @@ MulticopterPositionControl::control_manual(float dt)
 
 	if (_control_mode.flag_control_position_enabled) {
 		/* move position setpoint with roll/pitch stick */
-		_sp_move_rate(0) = _manual.x;
-		_sp_move_rate(1) = _manual.y;
+		if(_sonar.Front == 1){
+			if(_manual.x > 0){
+				_sp_move_rate(0) = 0;
+			}else{
+				_sp_move_rate(0) = _manual.x;
+			}
+		}else if(_sonar.Front == 2){
+			if(_manual.x > 0){
+				_sp_move_rate(0) = -0.2;
+			}else{
+				_sp_move_rate(0) = _manual.x;
+			}
+		}else{
+			_sp_move_rate(0) = _manual.x;
+		}
+
+		if(_sonar.Back == 1){
+			if(_manual.x < 0){
+				_sp_move_rate(0) = 0;
+			}else{
+				_sp_move_rate(0) = _manual.x;
+			}
+		}else if(_sonar.Back == 2){
+			if(_manual.x < 0){
+				_sp_move_rate(0) = -0.2;
+			}else{
+				_sp_move_rate(0) = _manual.x;
+			}
+		}else{
+			_sp_move_rate(0) = _manual.x;
+		}
+
+		if(_sonar.Left == 1){
+			if(_manual.y < 0){
+				_sp_move_rate(1) = 0;
+			}else{
+				_sp_move_rate(1) = _manual.y;
+			}
+		}else if(_sonar.Left == 2){
+			if(_manual.y < 0){
+				_sp_move_rate(1) = -0.2;
+			}else{
+				_sp_move_rate(1) = _manual.y;
+			}
+		}else{
+			_sp_move_rate(1) = _manual.y;
+		}
+
+		if(_sonar.Right == 1){
+			if(_manual.y > 0){
+				_sp_move_rate(1) = 0;
+			}else{
+				_sp_move_rate(1) = _manual.y;
+			}
+		}else if(_sonar.Right == 2){
+			if(_manual.y> 0){
+				_sp_move_rate(1) = -0.2;
+			}else{
+				_sp_move_rate(1) = _manual.y;
+			}
+		}else{
+			_sp_move_rate(1) = _manual.y;
+		}
 	}
 
 	/* limit setpoint move rate */

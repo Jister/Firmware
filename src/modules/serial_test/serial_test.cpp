@@ -25,6 +25,7 @@
 #include <uORB/uORB.h>
 #include <board_config.h>
 #include <uORB/topics/laser_msg.h>
+#include <uORB/topics/sonar.h>
 
 /* oddly, ERROR is not defined for c++ */
 #ifdef ERROR
@@ -34,7 +35,7 @@ static const int ERROR = -1;
 
 // designated SERIAL4/5 on Pixhawk
 #define SERIAL_PORT		"/dev/ttyS6"
-#define MAXSIZE 30
+#define MAXSIZE 1000
 
 static bool thread_should_exit = false;		/**< serial_test exit flag */
 static bool thread_running = false;		/**< serial_test status flag */
@@ -49,6 +50,10 @@ int write_addr=0;
 
 int angle = 0;
 int distance = 30000;
+int Front = 0;
+int Back = 0;
+int Left = 0;
+int Right = 0;
 
 extern "C" __EXPORT int serial_test_main(int argc, char *argv[]);
 int serial_test_thread_main(int argc, char *argv[]);
@@ -90,13 +95,18 @@ void read_data()
 		angle = 100*(ringbuf[read_addr+1]-48) + 10*(ringbuf[read_addr+2]-48) + (ringbuf[read_addr+3]-48);
 		distance = 10000*(ringbuf[read_addr+4]-48) + 1000*(ringbuf[read_addr+5]-48) + 100*(ringbuf[read_addr+6]-48)+ 
 		                    10*(ringbuf[read_addr+7]-48) + (ringbuf[read_addr+8]-48);
-		for(int i=0 ; i<10; i++)
+		Front = ringbuf[read_addr+10]-48;
+		Back = ringbuf[read_addr+12]-48;
+		Left = ringbuf[read_addr+14]-48;
+		Right = ringbuf[read_addr+16]-48;
+
+		for(int i=0 ; i<18; i++)
 		{
 			read_addr = next_data_handle(read_addr);  
 		}
 	}else
 	{
-		for(int i=0 ; i<10; i++)
+		for(int i=0 ; i<18; i++)
 		{
 			read_addr = next_data_handle(read_addr);  
 			if(ringbuf[read_addr] == 'M')
@@ -222,7 +232,7 @@ int read()
 	int ret ;
 	
 	memset(readbuf,0,50);
-	ret = read(_serial_fd, readbuf, 10);
+	ret = read(_serial_fd, readbuf, 18);
 	if (ret < 0) {
 		warnx("read err: %d\n", ret);
 		return -1;
@@ -286,8 +296,11 @@ int serial_test_thread_main(int argc, char *argv[])
 
 	/* advertise laser topic */
 	struct laser_msg_s laser;
+	struct sonar_s sonar;
 	memset(&laser, 0, sizeof(laser));
+	memset(&sonar, 0, sizeof(sonar));
 	orb_advert_t _laser_pub = orb_advertise(ORB_ID(laser_msg), &laser);
+	orb_advert_t _sonar_pub = orb_advertise(ORB_ID(sonar), &sonar);
                           
                             serial_init();
                             ret = set_serial(_serial_fd,115200,8,'N',1);
@@ -306,27 +319,46 @@ int serial_test_thread_main(int argc, char *argv[])
 	                           {
 	                             	laser.laser_distance = distance;
 	                                                        laser.laser_angle = angle;
+	                                                        sonar.Front = 0;
+	                                                        sonar.Back = 0;
+	                                                        sonar.Left = 0;
+	                                                        sonar.Right = 0;
+
 	                                                        orb_publish(ORB_ID(laser_msg), _laser_pub, &laser);
+	                                                        orb_publish(ORB_ID(sonar), _sonar_pub, &sonar);
 
 	                                                        printf("angle:%d\n", angle);
 	                                                        printf("distance:%d\n", distance);
+	                                                        printf("Front:%d\n", Front);
+	                                                        printf("Back:%d\n", Back);
+	                                                        printf("Left:%d\n", Left);
+	                                                        printf("Right:%d\n", Right);
 	                                                        printf("\n[message] Read:OK\n");
 	                           }else
 	                           {
-	                            	for(int i=0;i<10;i++)
+	                            	for(int i=0;i<18;i++)
 	                           	                            {
                             	                                                    write_data(readbuf[i]);	                         	                        	                     
 	                                                        }	                   	
 	                                                        read_data();
 	                                                        laser.laser_distance = distance;
 	                                                        laser.laser_angle = angle;
+	                                                        sonar.Front = Front;
+	                                                        sonar.Back = Back;
+	                                                        sonar.Left = Left;
+	                                                        sonar.Right = Right;
 	                                                        orb_publish(ORB_ID(laser_msg), _laser_pub, &laser);
+	                                                        orb_publish(ORB_ID(sonar), _sonar_pub, &sonar);
 	                                                        printf("angle:%d\n", angle);
 	                                                        printf("distance:%d\n", distance);
-	                                                        printf("\n[message] Read:OK\n");
+	                                                        printf("Front:%d\n", Front);
+	                                                        printf("Back:%d\n", Back);
+	                                                        printf("Left:%d\n", Left);
+	                                                        printf("Right:%d\n", Right);
+	                                                        printf("\n[message] Read:OK\n\n");
 	                           }
 	                           
-	                            usleep(75000);
+	                            usleep(50000);
 	}
 
 	warnx("[serial_test] exiting.\n");

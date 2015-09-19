@@ -140,6 +140,7 @@ MODULES		+= examples/rover_steering_control
 
 #Own apps
 MODULES		+= modules/serial_test
+MODULES         += modules/message
 
 #
 # Demo apps
