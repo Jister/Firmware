@@ -91,6 +91,8 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
+#define Safe_distance                 100
+#define sonar_P                            5.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -647,7 +649,7 @@ MulticopterPositionControl::control_manual(float dt)
 
 	if (_control_mode.flag_control_position_enabled) {
 		/* move position setpoint with roll/pitch stick */
-		if(_sonar.Front == 1){
+		/*if(_sonar.Front == 1){
 			if(_manual.x > 0){
 				_sp_move_rate(0) = 0;
 			}else{
@@ -709,7 +711,10 @@ MulticopterPositionControl::control_manual(float dt)
 			}
 		}else{
 			_sp_move_rate(1) = _manual.y;
-		}
+		}*/
+		_sp_move_rate(0) = _manual.x;
+		_sp_move_rate(1) = _manual.y;
+
 	}
 
 	/* limit setpoint move rate */
@@ -1005,6 +1010,7 @@ MulticopterPositionControl::task_main()
 	_pos_sp_triplet_sub = orb_subscribe(ORB_ID(position_setpoint_triplet));
 	_local_pos_sp_sub = orb_subscribe(ORB_ID(vehicle_local_position_setpoint));
 	_global_vel_sp_sub = orb_subscribe(ORB_ID(vehicle_global_velocity_setpoint));
+	_sonar_sub = orb_subscribe(ORB_ID(sonar));
 
 
 	parameters_update(true);
@@ -1511,6 +1517,66 @@ MulticopterPositionControl::task_main()
 				/* enforce minimum throttle if not landed */
 				if (!_vehicle_status.condition_landed) {
 					_att_sp.thrust = math::max(_att_sp.thrust, _manual_thr_min.get());
+				}
+			}
+
+			if((_sonar.Front>20)&&(_sonar.Front<Safe_distance)){
+				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
+					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f) - sonar_P/((_sonar.Front*_sonar.Front/10000.0f)+0.05f);
+					if(_att_sp.pitch_body > 20.0f){
+						_att_sp.pitch_body  = 20.0f;
+					}
+					if(_att_sp.pitch_body < -20.0f){
+						_att_sp.pitch_body  = -20.0f;
+					}
+				}else{
+					_att_sp.pitch_body = - sonar_P/(((float)_sonar.Front*(float)_sonar.Front/10000.0f)+0.05f);
+					if(_att_sp.pitch_body > 20.0f){
+						_att_sp.pitch_body  = 20.0f;
+					}
+					if(_att_sp.pitch_body < -20.0f){
+						_att_sp.pitch_body  = -20.0f;
+					}
+				}
+			}else{
+				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
+					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f);
+					if(_att_sp.pitch_body > 20.0f){
+						_att_sp.pitch_body  = 20.0f;
+					}
+					if(_att_sp.pitch_body < -20.0f){
+						_att_sp.pitch_body  = -20.0f;
+					}
+				}
+			}
+
+			if((_sonar.Right>20)&&(_sonar.Right<Safe_distance)){
+				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
+					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f) - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
+					if(_att_sp.roll_body > 20.0f){
+						_att_sp.roll_body  = 20.0f;
+					}
+					if(_att_sp.roll_body < -20.0f){
+						_att_sp.roll_body  = -20.0f;
+					}
+				}else{
+					_att_sp.roll_body = - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
+					if(_att_sp.roll_body > 20.0f){
+						_att_sp.roll_body  = 20.0f;
+					}
+					if(_att_sp.roll_body < -20.0f){
+						_att_sp.roll_body  = -20.0f;
+					}
+				}
+			}else{
+				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
+					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f);
+					if(_att_sp.roll_body > 20.0f){
+						_att_sp.roll_body  = 20.0f;
+					}
+					if(_att_sp.roll_body < -20.0f){
+						_att_sp.roll_body  = -20.0f;
+					}
 				}
 			}
 

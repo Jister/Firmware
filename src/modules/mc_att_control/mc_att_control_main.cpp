@@ -82,7 +82,6 @@
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/multirotor_motor_limits.h>
 #include <uORB/topics/mc_att_ctrl_status.h>
- #include <uORB/topics/sonar.h>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
 #include <systemlib/perf_counter.h>
@@ -137,7 +136,6 @@ private:
 	int		_armed_sub;				/**< arming status subscription */
 	int		_vehicle_status_sub;	/**< vehicle status subscription */
 	int 	_motor_limits_sub;		/**< motor limits subscription */
-	int 	_sonar;		/**< motor limits subscription */
 
 	orb_advert_t	_v_rates_sp_pub;		/**< rate setpoint publication */
 	orb_advert_t	_actuators_0_pub;		/**< attitude actuator controls publication */
@@ -275,6 +273,7 @@ private:
 	 * Check for vehicle motor limits status.
 	 */
 	void		vehicle_motor_limits_poll();
+
 
 	/**
 	 * Shim for calling task_main from task_create.
@@ -599,6 +598,7 @@ MulticopterAttitudeControl::vehicle_motor_limits_poll()
 		orb_copy(ORB_ID(multirotor_motor_limits), _motor_limits_sub, &_motor_limits);
 	}
 }
+
 
 /**
  * Attitude controller.
