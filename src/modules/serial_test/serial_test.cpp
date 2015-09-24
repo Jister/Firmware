@@ -90,23 +90,22 @@ void write_data(char data)
   
 void read_data()  
 {
-	if(ringbuf[read_addr] == 'M'&&ringbuf[read_addr+21]== '\n')
+	if(ringbuf[read_addr] == 'M'&&ringbuf[read_addr+18]== '\n')
 	{
 		angle = 100*(ringbuf[read_addr+1]-48) + 10*(ringbuf[read_addr+2]-48) + (ringbuf[read_addr+3]-48);
 		distance = 10000*(ringbuf[read_addr+4]-48) + 1000*(ringbuf[read_addr+5]-48) + 100*(ringbuf[read_addr+6]-48)+ 
 		                    10*(ringbuf[read_addr+7]-48) + (ringbuf[read_addr+8]-48);
-		Front = 100*(ringbuf[read_addr+9]-48) + 10*(ringbuf[read_addr+10]-48)+(ringbuf[read_addr+11]-48);
-		Back = 100*(ringbuf[read_addr+12]-48) + 10*(ringbuf[read_addr+13]-48)+(ringbuf[read_addr+14]-48);
-		Left = 100*(ringbuf[read_addr+15]-48) + 10*(ringbuf[read_addr+16]-48)+(ringbuf[read_addr+17]-48);
-		Right = 100*(ringbuf[read_addr+18]-48) + 10*(ringbuf[read_addr+19]-48)+(ringbuf[read_addr+20]-48);
+		Back = 100*(ringbuf[read_addr+9]-48) + 10*(ringbuf[read_addr+10]-48)+(ringbuf[read_addr+11]-48);
+		Left = 100*(ringbuf[read_addr+12]-48) + 10*(ringbuf[read_addr+13]-48)+(ringbuf[read_addr+14]-48);
+		Right = 100*(ringbuf[read_addr+15]-48) + 10*(ringbuf[read_addr+16]-48)+(ringbuf[read_addr+17]-48);
 
-		for(int i=0 ; i<22; i++)
+		for(int i=0 ; i<19; i++)
 		{
 			read_addr = next_data_handle(read_addr);  
 		}
 	}else
 	{
-		for(int i=0 ; i<22; i++)
+		for(int i=0 ; i<19; i++)
 		{
 			read_addr = next_data_handle(read_addr);  
 			if(ringbuf[read_addr] == 'M')
@@ -232,7 +231,7 @@ int read()
 	int ret ;
 	
 	memset(readbuf,0,50);
-	ret = read(_serial_fd, readbuf, 22);
+	ret = read(_serial_fd, readbuf, 19);
 	if (ret < 0) {
 		warnx("read err: %d\n", ret);
 		return -1;
@@ -336,14 +335,14 @@ int serial_test_thread_main(int argc, char *argv[])
 	                                                        printf("\n[message] Read:OK\n");
 	                           }else
 	                           {
-	                            	for(int i=0;i<22;i++)
+	                            	for(int i=0;i<19;i++)
 	                           	                            {
                             	                                                    write_data(readbuf[i]);	                         	                        	                     
 	                                                        }	                   	
 	                                                        read_data();
 	                                                        laser.laser_distance = distance;
 	                                                        laser.laser_angle = angle;
-	                                                        sonar.Front = Front;
+	                                                        sonar.Front = 0;
 	                                                        sonar.Back = Back;
 	                                                        sonar.Left = Left;
 	                                                        sonar.Right = Right;
@@ -351,14 +350,13 @@ int serial_test_thread_main(int argc, char *argv[])
 	                                                        orb_publish(ORB_ID(sonar), _sonar_pub, &sonar);
 	                                                        printf("angle:%d\n", angle);
 	                                                        printf("distance:%d\n", distance);
-	                                                        printf("Front:%d\n", Front);
 	                                                        printf("Back:%d\n", Back);
 	                                                        printf("Left:%d\n", Left);
 	                                                        printf("Right:%d\n", Right);
 	                                                        printf("\n[message] Read:OK\n\n");
 	                           }
 	                           
-	                            usleep(50000);
+	                            usleep(20000);
 	}
 
 	warnx("[serial_test] exiting.\n");

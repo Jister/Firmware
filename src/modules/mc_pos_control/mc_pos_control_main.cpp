@@ -77,6 +77,7 @@
 #include <uORB/topics/vehicle_global_velocity_setpoint.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
  #include <uORB/topics/sonar.h>
+  #include <uORB/topics/laser_msg.h>
 
 #include <systemlib/systemlib.h>
 #include <mathlib/mathlib.h>
@@ -91,7 +92,8 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
-#define Safe_distance                 100
+#define Laser_safe_distance                 100
+#define Sonar_safe_distance                 100
 #define sonar_P                            5.0f
 
 /**
@@ -140,6 +142,7 @@ private:
 	int		_local_pos_sp_sub;		/**< offboard local position setpoint */
 	int		_global_vel_sp_sub;		/**< offboard global velocity setpoint */
                             int		_sonar_sub;
+                            int		_laser_sub;
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -156,6 +159,7 @@ private:
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;		/**< vehicle global velocity setpoint */
                             struct sonar_s	                                                        _sonar;
+                            struct laser_msg_s	                            _laser;
 
 	control::BlockParamFloat _manual_thr_min;
 	control::BlockParamFloat _manual_thr_max;
@@ -319,6 +323,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_pos_sp_triplet_sub(-1),
 	_global_vel_sp_sub(-1),
 	_sonar_sub(-1),
+	_laser_sub(-1),
 
 /* publications */
 	_att_sp_pub(nullptr),
@@ -344,6 +349,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	memset(&_local_pos_sp, 0, sizeof(_local_pos_sp));
 	memset(&_global_vel_sp, 0, sizeof(_global_vel_sp));
 	memset(&_sonar,0, sizeof(_sonar));
+	memset(&_laser,0, sizeof(_laser));
 
 	memset(&_ref_pos, 0, sizeof(_ref_pos));
 
@@ -540,6 +546,12 @@ MulticopterPositionControl::poll_subscriptions()
 
 	if (updated) {
 		orb_copy(ORB_ID(sonar), _sonar_sub, &_sonar);
+	}
+
+	orb_check(_laser_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(laser_msg), _laser_sub, &_laser);
 	}
 }
 
@@ -1520,57 +1532,62 @@ MulticopterPositionControl::task_main()
 				}
 			}
 
-			if((_sonar.Front>20)&&(_sonar.Front<Safe_distance)){
-				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
-					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f) - sonar_P/((_sonar.Front*_sonar.Front/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
+			if(_manual.loiter_switch==3){
+				float x_a = 0.0f;
+				float y_a = 0.0f;
+				if((_laser.laser_distance>20)&&(_laser.laser_distance<Laser_safe_distance)){
+					y_a = double(_laser.laser_distance)*cos(double(_laser.laser_angle)/180*M_PI );
+					x_a = double(_laser.laser_distance)*sin(double(_laser.laser_angle)/180*M_PI );
+					if((_sonar.Back<Sonar_safe_distance)&&(_sonar.Back>20)){
+						x_a = x_a - _sonar.Back;
 					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
+					if((_sonar.Left<Sonar_safe_distance)&&(_sonar.Left>20)){
+						x_a = x_a - _sonar.Back*0.866f;
+						y_a = y_a - _sonar.Back*0.5f;
 					}
-				}else{
-					_att_sp.pitch_body = - sonar_P/(((float)_sonar.Front*(float)_sonar.Front/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
+					if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
+						x_a = x_a - _sonar.Back*0.866f;
+						y_a = y_a + _sonar.Back*0.5f;
 					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
-					}
-				}
-			}else{
-				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
-					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
-					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
-					}
-				}
-			}
 
-			if((_sonar.Right>20)&&(_sonar.Right<Safe_distance)){
-				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
-					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f) - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
+					_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+					if(_att_sp.pitch_body > 20.0f){
+						_att_sp.pitch_body  = 20.0f;
+					}
+					if(_att_sp.pitch_body < -20.0f){
+						_att_sp.pitch_body  = -20.0f;
+					}
+
+					_att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
 					if(_att_sp.roll_body > 20.0f){
 						_att_sp.roll_body  = 20.0f;
 					}
 					if(_att_sp.roll_body < -20.0f){
 						_att_sp.roll_body  = -20.0f;
 					}
+
 				}else{
-					_att_sp.roll_body = - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
-					if(_att_sp.roll_body > 20.0f){
-						_att_sp.roll_body  = 20.0f;
+					if((_sonar.Back<Sonar_safe_distance)&&(_sonar.Back>20)){
+						x_a = x_a - _sonar.Back;
 					}
-					if(_att_sp.roll_body < -20.0f){
-						_att_sp.roll_body  = -20.0f;
+					if((_sonar.Left<Sonar_safe_distance)&&(_sonar.Left>20)){
+						x_a = x_a - _sonar.Back*0.866f;
+						y_a = y_a - _sonar.Back*0.5f;
 					}
-				}
-			}else{
-				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
-					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f);
+					if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
+						x_a = x_a - _sonar.Back*0.866f;
+						y_a = y_a + _sonar.Back*0.5f;
+					}
+
+					_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+					if(_att_sp.pitch_body > 20.0f){
+						_att_sp.pitch_body  = 20.0f;
+					}
+					if(_att_sp.pitch_body < -20.0f){
+						_att_sp.pitch_body  = -20.0f;
+					}
+
+					_att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
 					if(_att_sp.roll_body > 20.0f){
 						_att_sp.roll_body  = 20.0f;
 					}
