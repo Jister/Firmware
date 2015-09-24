@@ -312,6 +312,9 @@ int serial_test_thread_main(int argc, char *argv[])
 	while (!thread_should_exit) {
 		angle = 0;
 		distance = 30000;
+		Back = 0;
+		Left = 0;
+		Right = 0;
 
 	                           ret = read();
 	                           if(ret == -1)
@@ -356,7 +359,7 @@ int serial_test_thread_main(int argc, char *argv[])
 	                                                        printf("\n[message] Read:OK\n\n");
 	                           }
 	                           
-	                            usleep(20000);
+	                            usleep(40000);
 	}
 
 	warnx("[serial_test] exiting.\n");

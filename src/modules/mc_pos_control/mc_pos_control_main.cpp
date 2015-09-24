@@ -94,7 +94,7 @@
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
 #define Laser_safe_distance                 100
 #define Sonar_safe_distance                 100
-#define sonar_P                            5.0f
+#define sonar_P                            3.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -1569,30 +1569,73 @@ MulticopterPositionControl::task_main()
 				}else{
 					if((_sonar.Back<Sonar_safe_distance)&&(_sonar.Back>20)){
 						x_a = x_a - _sonar.Back;
-					}
-					if((_sonar.Left<Sonar_safe_distance)&&(_sonar.Left>20)){
+						if((_sonar.Left<Sonar_safe_distance)&&(_sonar.Left>20)){
+							x_a = x_a - _sonar.Back*0.866f;
+							y_a = y_a - _sonar.Back*0.5f;
+						}
+						if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
+						                            x_a = x_a - _sonar.Back*0.866f;
+						                            y_a = y_a + _sonar.Back*0.5f;
+					                            }
+
+					                            _att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+					                           if(_att_sp.pitch_body > 20.0f){
+						                           _att_sp.pitch_body  = 20.0f;
+					                            }
+					                           if(_att_sp.pitch_body < -20.0f){
+						                          _att_sp.pitch_body  = -20.0f;
+					                            }
+
+					                            _att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
+					                            if(_att_sp.roll_body > 20.0f){
+						                          _att_sp.roll_body  = 20.0f;
+					                            }
+					                            if(_att_sp.roll_body < -20.0f){
+						                          _att_sp.roll_body  = -20.0f;
+					                            }
+					}else if((_sonar.Left<Sonar_safe_distance)&&(_sonar.Left>20)){
 						x_a = x_a - _sonar.Back*0.866f;
 						y_a = y_a - _sonar.Back*0.5f;
-					}
-					if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
-						x_a = x_a - _sonar.Back*0.866f;
-						y_a = y_a + _sonar.Back*0.5f;
-					}
+						if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
+							x_a = x_a - _sonar.Back*0.866f;
+						                            y_a = y_a + _sonar.Back*0.5f;
+						}
 
-					_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
-					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
-					}
+						_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+					                           if(_att_sp.pitch_body > 20.0f){
+						                           _att_sp.pitch_body  = 20.0f;
+					                            }
+					                           if(_att_sp.pitch_body < -20.0f){
+						                          _att_sp.pitch_body  = -20.0f;
+					                            }
 
-					_att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
-					if(_att_sp.roll_body > 20.0f){
-						_att_sp.roll_body  = 20.0f;
-					}
-					if(_att_sp.roll_body < -20.0f){
-						_att_sp.roll_body  = -20.0f;
+					                            _att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
+					                            if(_att_sp.roll_body > 20.0f){
+						                          _att_sp.roll_body  = 20.0f;
+					                            }
+					                            if(_att_sp.roll_body < -20.0f){
+						                          _att_sp.roll_body  = -20.0f;
+					                            }
+					}else{
+						if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
+							x_a = x_a - _sonar.Back*0.866f;
+						                            y_a = y_a + _sonar.Back*0.5f;
+						}
+						_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+					                           if(_att_sp.pitch_body > 20.0f){
+						                           _att_sp.pitch_body  = 20.0f;
+					                            }
+					                           if(_att_sp.pitch_body < -20.0f){
+						                          _att_sp.pitch_body  = -20.0f;
+					                            }
+
+					                            _att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
+					                            if(_att_sp.roll_body > 20.0f){
+						                          _att_sp.roll_body  = 20.0f;
+					                            }
+					                            if(_att_sp.roll_body < -20.0f){
+						                          _att_sp.roll_body  = -20.0f;
+					                            }
 					}
 				}
 			}
