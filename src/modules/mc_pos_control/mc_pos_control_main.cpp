@@ -1598,24 +1598,24 @@ MulticopterPositionControl::task_main()
 						y_a = y_a - _sonar.Back*0.5f;
 						if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
 							x_a = x_a - _sonar.Back*0.866f;
-						                            y_a = y_a + _sonar.Back*0.5f;
+							y_a = y_a + _sonar.Back*0.5f;
 						}
 
 						_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
-					                           if(_att_sp.pitch_body > 20.0f){
-						                           _att_sp.pitch_body  = 20.0f;
-					                            }
-					                           if(_att_sp.pitch_body < -20.0f){
-						                          _att_sp.pitch_body  = -20.0f;
-					                            }
+						if(_att_sp.pitch_body > 20.0f){
+							_att_sp.pitch_body  = 20.0f;
+						}
+						if(_att_sp.pitch_body < -20.0f){
+							_att_sp.pitch_body  = -20.0f;
+						}
 
-					                            _att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
-					                            if(_att_sp.roll_body > 20.0f){
-						                          _att_sp.roll_body  = 20.0f;
-					                            }
-					                            if(_att_sp.roll_body < -20.0f){
-						                          _att_sp.roll_body  = -20.0f;
-					                            }
+						_att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
+						if(_att_sp.roll_body > 20.0f){
+							_att_sp.roll_body  = 20.0f;
+						}
+						if(_att_sp.roll_body < -20.0f){
+							_att_sp.roll_body  = -20.0f;
+						}
 					}else{
 						if((_sonar.Right<Sonar_safe_distance)&&(_sonar.Right>20)){
 							x_a = x_a - _sonar.Back*0.866f;
