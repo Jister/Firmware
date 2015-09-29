@@ -1520,62 +1520,81 @@ MulticopterPositionControl::task_main()
 				}
 			}
 
-			if((_sonar.Front>20)&&(_sonar.Front<Safe_distance)){
-				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
-					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f) - sonar_P/((_sonar.Front*_sonar.Front/10000.0f)+0.05f);
+			if(_manual.loiter_switch==3){
+				float x_a = 0.0f;
+				float y_a = 0.0f;
+				if((_laser.laser_distance>40)&&(_laser.laser_distance<Laser_safe_distance)){
+					y_a = double(_laser.laser_distance)*cos(double(_laser.laser_angle)/180*M_PI );
+					x_a = double(_laser.laser_distance)*sin(double(_laser.laser_angle)/180*M_PI );
+					if((_sonar.Back>40)&&(_sonar.Back<Sonar_safe_distance)){
+						x_a = x_a - _sonar.Back;
+					}
+					
+					_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
 					if(_att_sp.pitch_body > 20.0f){
 						_att_sp.pitch_body  = 20.0f;
 					}
 					if(_att_sp.pitch_body < -20.0f){
 						_att_sp.pitch_body  = -20.0f;
 					}
-				}else{
-					_att_sp.pitch_body = - sonar_P/(((float)_sonar.Front*(float)_sonar.Front/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
-					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
-					}
-				}
-			}else{
-				if((_sonar.Back>20)&&(_sonar.Back<Safe_distance)){
-					_att_sp.pitch_body = sonar_P/(((float)_sonar.Back*(float)_sonar.Back/10000.0f)+0.05f);
-					if(_att_sp.pitch_body > 20.0f){
-						_att_sp.pitch_body  = 20.0f;
-					}
-					if(_att_sp.pitch_body < -20.0f){
-						_att_sp.pitch_body  = -20.0f;
-					}
-				}
-			}
 
-			if((_sonar.Right>20)&&(_sonar.Right<Safe_distance)){
-				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
-					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f) - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
+					_att_sp.roll_body = - sonar_P/((y_a*y_a/10000.0f)+0.05f);
 					if(_att_sp.roll_body > 20.0f){
 						_att_sp.roll_body  = 20.0f;
 					}
 					if(_att_sp.roll_body < -20.0f){
 						_att_sp.roll_body  = -20.0f;
 					}
+
 				}else{
-					_att_sp.roll_body = - sonar_P/(((float)_sonar.Right*(float)_sonar.Right/10000.0f)+0.05f);
-					if(_att_sp.roll_body > 20.0f){
-						_att_sp.roll_body  = 20.0f;
+					if((_sonar.Front>40)&&(_sonar.Front<Safe_distance)){
+						x_a = x_a + _sonar.Front;
+						if((_sonar.Back>40)&&(_sonar.Back<Safe_distance)){
+							x_a = x_a - _sonar.Back;
+						}
+						_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+						if(_att_sp.pitch_body > 20.0f){
+							_att_sp.pitch_body  = 20.0f;
+						}
+						if(_att_sp.pitch_body < -20.0f){
+							_att_sp.pitch_body  = -20.0f;
+						}
+					}else{
+						if((_sonar.Back>40)&&(_sonar.Back<Safe_distance)){
+							x_a = x_a - _sonar.Back;
+						}
+						_att_sp.pitch_body =  sonar_P/((x_a*x_a/10000.0f)+0.05f);
+						if(_att_sp.pitch_body > 20.0f){
+							_att_sp.pitch_body  = 20.0f;
+						}
+						if(_att_sp.pitch_body < -20.0f){
+							_att_sp.pitch_body  = -20.0f;
+						}
 					}
-					if(_att_sp.roll_body < -20.0f){
-						_att_sp.roll_body  = -20.0f;
-					}
-				}
-			}else{
-				if((_sonar.Left>20)&&(_sonar.Left<Safe_distance)){
-					_att_sp.roll_body = sonar_P/(((float)_sonar.Left*(float)_sonar.Left/10000.0f)+0.05f);
-					if(_att_sp.roll_body > 20.0f){
-						_att_sp.roll_body  = 20.0f;
-					}
-					if(_att_sp.roll_body < -20.0f){
-						_att_sp.roll_body  = -20.0f;
+
+					if((_sonar.Right>40)&&(_sonar.Right<Safe_distance)){
+						y_a = y_a + _sonar.Right;
+						if((_sonar.Left>40)&&(_sonar.Left<Safe_distance)){
+							y_a = y_a - _sonar.Left;
+						}
+						_att_sp.roll_body =  -sonar_P/((y_a*y_a/10000.0f)+0.05f);
+						if(_att_sp.roll_body > 20.0f){
+							_att_sp.roll_body  = 20.0f;
+						}
+						if(_att_sp.roll_body < -20.0f){
+							_att_sp.roll_body  = -20.0f;
+						}
+					}else{
+						if((_sonar.Left>40)&&(_sonar.Left<Safe_distance)){
+							y_a = y_a - _sonar.Left;
+						}
+						_att_sp.roll_body =  -sonar_P/((y_a*y_a/10000.0f)+0.05f);
+						if(_att_sp.roll_body > 20.0f){
+							_att_sp.roll_body  = 20.0f;
+						}
+						if(_att_sp.roll_body < -20.0f){
+							_att_sp.roll_body  = -20.0f;
+						}
 					}
 				}
 			}
