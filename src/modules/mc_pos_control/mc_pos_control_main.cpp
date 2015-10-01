@@ -76,7 +76,8 @@
 #include <uORB/topics/position_setpoint_triplet.h>
 #include <uORB/topics/vehicle_global_velocity_setpoint.h>
 #include <uORB/topics/vehicle_local_position_setpoint.h>
- #include <uORB/topics/sonar.h>
+#include <uORB/topics/sonar.h>
+#include <uORB/topics/laser_msg.h>
 
 #include <systemlib/systemlib.h>
 #include <mathlib/mathlib.h>
@@ -91,8 +92,8 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
-#define Safe_distance                 100
-#define sonar_P                            5.0f
+#define Safe_distance                 120
+#define sonar_P                            3.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -140,6 +141,7 @@ private:
 	int		_local_pos_sp_sub;		/**< offboard local position setpoint */
 	int		_global_vel_sp_sub;		/**< offboard global velocity setpoint */
                             int		_sonar_sub;
+                            int		_laser_sub;
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -156,6 +158,7 @@ private:
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;		/**< vehicle global velocity setpoint */
                             struct sonar_s	                                                        _sonar;
+                            struct laser_msg_s	                            _laser;
 
 	control::BlockParamFloat _manual_thr_min;
 	control::BlockParamFloat _manual_thr_max;
@@ -319,6 +322,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_pos_sp_triplet_sub(-1),
 	_global_vel_sp_sub(-1),
 	_sonar_sub(-1),
+	_laser_sub(-1),
 
 /* publications */
 	_att_sp_pub(nullptr),
@@ -344,6 +348,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	memset(&_local_pos_sp, 0, sizeof(_local_pos_sp));
 	memset(&_global_vel_sp, 0, sizeof(_global_vel_sp));
 	memset(&_sonar,0, sizeof(_sonar));
+	memset(&_laser,0, sizeof(_laser));
 
 	memset(&_ref_pos, 0, sizeof(_ref_pos));
 
@@ -540,6 +545,12 @@ MulticopterPositionControl::poll_subscriptions()
 
 	if (updated) {
 		orb_copy(ORB_ID(sonar), _sonar_sub, &_sonar);
+	}
+
+	orb_check(_laser_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(laser_msg), _laser_sub, &_laser);
 	}
 }
 
@@ -1523,10 +1534,10 @@ MulticopterPositionControl::task_main()
 			if(_manual.loiter_switch==3){
 				float x_a = 0.0f;
 				float y_a = 0.0f;
-				if((_laser.laser_distance>40)&&(_laser.laser_distance<Laser_safe_distance)){
+				if((_laser.laser_distance>40)&&(_laser.laser_distance<Safe_distance)){
 					y_a = double(_laser.laser_distance)*cos(double(_laser.laser_angle)/180*M_PI );
 					x_a = double(_laser.laser_distance)*sin(double(_laser.laser_angle)/180*M_PI );
-					if((_sonar.Back>40)&&(_sonar.Back<Sonar_safe_distance)){
+					if((_sonar.Back>40)&&(_sonar.Back<Safe_distance)){
 						x_a = x_a - _sonar.Back;
 					}
 					

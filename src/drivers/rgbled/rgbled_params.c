@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2014 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2015 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,51 +31,24 @@
  *
  ****************************************************************************/
 
-#include <uavcan_stm32/uavcan_stm32.hpp>
-#include <drivers/drv_hrt.h>
-
-/**
- * @file uavcan_clock.cpp
+/*
+ * @file rgbled_params.c
  *
- * Implements a clock for the CAN node.
+ * Parameters defined by the RBG led driver
  *
- * @author Pavel Kirienko <pavel.kirienko@gmail.com>
+ * @author Nate Weibley <nate.weibley@prioria.com>
  */
 
-namespace uavcan_stm32
-{
-namespace clock
-{
 
-uavcan::MonotonicTime getMonotonic()
-{
-	return uavcan::MonotonicTime::fromUSec(hrt_absolute_time());
-}
+#include <px4_config.h>
+#include <systemlib/param/param.h>
 
-uavcan::UtcTime getUtc()
-{
-	return uavcan::UtcTime();
-}
-
-void adjustUtc(uavcan::UtcDuration adjustment)
-{
-	(void)adjustment;
-}
-
-uavcan::uint64_t getUtcUSecFromCanInterrupt();
-
-uavcan::uint64_t getUtcUSecFromCanInterrupt()
-{
-	return 0;
-}
-
-} // namespace clock
-
-SystemClock &SystemClock::instance()
-{
-	static SystemClock inst;
-	return inst;
-}
-
-}
-
+/**
+ * RGB Led brightness limit
+ *
+ * Set to 0 to disable, 1 for minimum brightness up to 15 (max)
+ *
+ * @min 0
+ * @max 15
+ */
+PARAM_DEFINE_INT32(LED_RGB_MAXBRT, 15);
