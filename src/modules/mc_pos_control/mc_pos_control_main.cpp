@@ -92,7 +92,7 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
-#define Safe_distance                 120
+#define Safe_distance                 100
 #define sonar_P                            3.0f
 
 /**
