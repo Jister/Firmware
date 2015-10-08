@@ -358,7 +358,7 @@ int serial_test_thread_main(int argc, char *argv[])
 	                                                        printf("\n[message] Read:OK\n\n");
 	                           }
 	                           
-	                            usleep(100000);
+	                            usleep(50000);
 	}
 
 	warnx("[serial_test] exiting.\n");

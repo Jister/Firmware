@@ -599,7 +599,6 @@ MulticopterAttitudeControl::vehicle_motor_limits_poll()
 	}
 }
 
-
 /**
  * Attitude controller.
  * Input: 'vehicle_attitude_setpoint' topics (depending on mode)
