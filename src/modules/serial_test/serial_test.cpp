@@ -207,7 +207,7 @@ int set_serial(int fd,int nSpeed, int nBits, char nEvent, int nStop)
 		newtio.c_cflag |=  CSTOPB;  
 	} 
 
-	newtio.c_cc[VTIME]  = 100;//重要  
+	newtio.c_cc[VTIME]  = 0;//重要  
 	newtio.c_cc[VMIN] = 0;//返回的最小值  重要  
 	tcflush(fd,TCIFLUSH);  
 	if((tcsetattr(fd,TCSANOW,&newtio))!=0)  
@@ -219,7 +219,7 @@ int set_serial(int fd,int nSpeed, int nBits, char nEvent, int nStop)
 }  
 
 void serial_init(){
-	_serial_fd = open(SERIAL_PORT, O_RDWR | O_NOCTTY | O_NONBLOCK);
+	_serial_fd = open(SERIAL_PORT, O_RDWR | O_NOCTTY |O_NONBLOCK );
 	warnx("serial open: %d",_serial_fd);
 	if (_serial_fd < 0) {
 		warnx("FAIL: serial fd");
@@ -290,6 +290,7 @@ int serial_test_main(int argc, char *argv[])
 int serial_test_thread_main(int argc, char *argv[])
 {
                             int ret;
+                            int count;
                             
 	warnx("[serial_test] starting\n");
 	thread_running = true;
@@ -303,6 +304,7 @@ int serial_test_thread_main(int argc, char *argv[])
 	orb_advert_t _sonar_pub = orb_advertise(ORB_ID(sonar), &sonar);
                           
                             serial_init();
+                            count = 0;
                             ret = set_serial(_serial_fd,115200,8,'N',1);
                             if(ret == -1)
                             {
@@ -311,31 +313,41 @@ int serial_test_thread_main(int argc, char *argv[])
                             }
 
 	while (!thread_should_exit) {
-		angle = 0;
-		distance = 30000;
-
+		
 	                           ret = read();
 	                           if(ret == -1)
 	                           {
-	                             	laser.laser_distance = distance;
-	                                                        laser.laser_angle = angle;
-	                                                        sonar.Front = 0;
-	                                                        sonar.Back = 0;
-	                                                        sonar.Left = 0;
-	                                                        sonar.Right = 0;
-
+	                             	count++;
+	                             	if(count == 10){
+	                             		laser.laser_distance = 0;
+	                             		laser.laser_angle = 0;
+	                             		sonar.Front = 0;
+	                             		sonar.Back = 0;
+	                             		sonar.Left = 0;
+	                             		sonar.Right = 0;
+	                             		count = 0;
+	                             	}else{
+	                             		laser.laser_distance = distance;
+	                             		laser.laser_angle = angle;
+	                             		sonar.Front = Front;
+	                             		sonar.Back = Back;
+	                             		sonar.Left = Left;
+	                             		sonar.Right = Right;
+	                             	}
+	                             	
 	                                                        orb_publish(ORB_ID(laser_msg), _laser_pub, &laser);
 	                                                        orb_publish(ORB_ID(sonar), _sonar_pub, &sonar);
 
-	                                                        printf("angle:%d\n", angle);
-	                                                        printf("distance:%d\n", distance);
-	                                                        printf("Front:%d\n", Front);
-	                                                        printf("Back:%d\n", Back);
-	                                                        printf("Left:%d\n", Left);
-	                                                        printf("Right:%d\n", Right);
+	                                                        printf("angle:%8.4f\n",  (double)laser.laser_angle);
+	                                                        printf("distance:%8.4f\n",  (double)laser.laser_distance);
+	                                                        printf("Front:%d\n",  sonar.Front);
+	                                                        printf("Back:%d\n",  sonar.Back);
+	                                                        printf("Left:%d\n",  sonar.Left);
+	                                                        printf("Right:%d\n",  sonar.Right);
 	                                                        printf("\n[message] Read:OK\n");
 	                           }else
 	                           {
+	                            	count = 0;
 	                            	for(int i=0;i<22;i++)
 	                           	                            {
                             	                                                    write_data(readbuf[i]);	                         	                        	                     
@@ -349,16 +361,15 @@ int serial_test_thread_main(int argc, char *argv[])
 	                                                        sonar.Right = Right;
 	                                                        orb_publish(ORB_ID(laser_msg), _laser_pub, &laser);
 	                                                        orb_publish(ORB_ID(sonar), _sonar_pub, &sonar);
-	                                                        printf("angle:%d\n", angle);
-	                                                        printf("distance:%d\n", distance);
-	                                                        printf("Front:%d\n", Front);
-	                                                        printf("Back:%d\n", Back);
-	                                                        printf("Left:%d\n", Left);
-	                                                        printf("Right:%d\n", Right);
+	                                                        printf("angle:%8.4f\n",  (double)laser.laser_angle);
+	                                                        printf("distance:%8.4f\n",  (double)laser.laser_distance);
+	                                                        printf("Front:%d\n",  sonar.Front);
+	                                                        printf("Back:%d\n",  sonar.Back);
+	                                                        printf("Left:%d\n",  sonar.Left);
+	                                                        printf("Right:%d\n",  sonar.Right);
 	                                                        printf("\n[message] Read:OK\n\n");
 	                           }
-	                           
-	                            usleep(50000);
+	                            usleep(35000);
 	}
 
 	warnx("[serial_test] exiting.\n");
