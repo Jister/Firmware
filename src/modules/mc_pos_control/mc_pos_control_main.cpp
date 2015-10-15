@@ -94,8 +94,8 @@
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
 #define Safe_distance                 120.0f
 #define sonar_P                            12.0f
-#define Laser_distance               200.0f
-#define Laser_P                            8.0f
+#define Laser_distance               150.0f
+#define Laser_P                            10.0f
 
 /**
  * Multicopter position control app start / stop handling function
