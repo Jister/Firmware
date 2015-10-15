@@ -1032,7 +1032,6 @@ Sensors::accel_poll(struct sensor_combined_s &raw)
 	for (unsigned i = 0; i < _accel_count; i++) {
 		bool accel_updated;
 		orb_check(_accel_sub[i], &accel_updated);
-<<<<<<< HEAD
 
 		if (accel_updated) {
 			struct accel_report	accel_report;
@@ -1059,34 +1058,6 @@ Sensors::accel_poll(struct sensor_combined_s &raw)
 			raw.accelerometer_raw[i * 3 + 1] = accel_report.y_raw;
 			raw.accelerometer_raw[i * 3 + 2] = accel_report.z_raw;
 
-=======
-
-		if (accel_updated) {
-			struct accel_report	accel_report;
-
-			orb_copy(ORB_ID(sensor_accel), _accel_sub[i], &accel_report);
-
-			math::Vector<3> vect(accel_report.x, accel_report.y, accel_report.z);
-			vect = _board_rotation * vect;
-
-			raw.accelerometer_m_s2[i * 3 + 0] = vect(0);
-			raw.accelerometer_m_s2[i * 3 + 1] = vect(1);
-			raw.accelerometer_m_s2[i * 3 + 2] = vect(2);
-
-			math::Vector<3> vect_int(accel_report.x_integral, accel_report.y_integral, accel_report.z_integral);
-			vect_int = _board_rotation * vect_int;
-
-			raw.accelerometer_integral_m_s[i * 3 + 0] = vect_int(0);
-			raw.accelerometer_integral_m_s[i * 3 + 1] = vect_int(1);
-			raw.accelerometer_integral_m_s[i * 3 + 2] = vect_int(2);
-
-			raw.accelerometer_integral_dt[i] = accel_report.integral_dt;
-
-			raw.accelerometer_raw[i * 3 + 0] = accel_report.x_raw;
-			raw.accelerometer_raw[i * 3 + 1] = accel_report.y_raw;
-			raw.accelerometer_raw[i * 3 + 2] = accel_report.z_raw;
-
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 			raw.accelerometer_timestamp[i] = accel_report.timestamp;
 			raw.accelerometer_errcount[i] = accel_report.error_count;
 			raw.accelerometer_temp[i] = accel_report.temperature;
@@ -1100,7 +1071,6 @@ Sensors::gyro_poll(struct sensor_combined_s &raw)
 	for (unsigned i = 0; i < _gyro_count; i++) {
 		bool gyro_updated;
 		orb_check(_gyro_sub[i], &gyro_updated);
-<<<<<<< HEAD
 
 		if (gyro_updated) {
 			struct gyro_report	gyro_report;
@@ -1127,34 +1097,6 @@ Sensors::gyro_poll(struct sensor_combined_s &raw)
 			raw.gyro_raw[i * 3 + 1] = gyro_report.y_raw;
 			raw.gyro_raw[i * 3 + 2] = gyro_report.z_raw;
 
-=======
-
-		if (gyro_updated) {
-			struct gyro_report	gyro_report;
-
-			orb_copy(ORB_ID(sensor_gyro), _gyro_sub[i], &gyro_report);
-
-			math::Vector<3> vect(gyro_report.x, gyro_report.y, gyro_report.z);
-			vect = _board_rotation * vect;
-
-			raw.gyro_rad_s[i * 3 + 0] = vect(0);
-			raw.gyro_rad_s[i * 3 + 1] = vect(1);
-			raw.gyro_rad_s[i * 3 + 2] = vect(2);
-
-			math::Vector<3> vect_int(gyro_report.x_integral, gyro_report.y_integral, gyro_report.z_integral);
-			vect_int = _board_rotation * vect_int;
-
-			raw.gyro_integral_rad[i * 3 + 0] = vect_int(0);
-			raw.gyro_integral_rad[i * 3 + 1] = vect_int(1);
-			raw.gyro_integral_rad[i * 3 + 2] = vect_int(2);
-
-			raw.gyro_integral_dt[i] = gyro_report.integral_dt;
-
-			raw.gyro_raw[i * 3 + 0] = gyro_report.x_raw;
-			raw.gyro_raw[i * 3 + 1] = gyro_report.y_raw;
-			raw.gyro_raw[i * 3 + 2] = gyro_report.z_raw;
-
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 			raw.gyro_timestamp[i] = gyro_report.timestamp;
 			if (i == 0) {
 				raw.timestamp = gyro_report.timestamp;
@@ -1171,7 +1113,6 @@ Sensors::mag_poll(struct sensor_combined_s &raw)
 	for (unsigned i = 0; i < _mag_count; i++) {
 		bool mag_updated;
 		orb_check(_mag_sub[i], &mag_updated);
-<<<<<<< HEAD
 
 		if (mag_updated) {
 			struct mag_report	mag_report;
@@ -1190,26 +1131,6 @@ Sensors::mag_poll(struct sensor_combined_s &raw)
 			raw.magnetometer_raw[i * 3 + 1] = mag_report.y_raw;
 			raw.magnetometer_raw[i * 3 + 2] = mag_report.z_raw;
 
-=======
-
-		if (mag_updated) {
-			struct mag_report	mag_report;
-
-			orb_copy(ORB_ID(sensor_mag), _mag_sub[i], &mag_report);
-
-			math::Vector<3> vect(mag_report.x, mag_report.y, mag_report.z);
-
-			vect = _mag_rotation[i] * vect;
-
-			raw.magnetometer_ga[i * 3 + 0] = vect(0);
-			raw.magnetometer_ga[i * 3 + 1] = vect(1);
-			raw.magnetometer_ga[i * 3 + 2] = vect(2);
-
-			raw.magnetometer_raw[i * 3 + 0] = mag_report.x_raw;
-			raw.magnetometer_raw[i * 3 + 1] = mag_report.y_raw;
-			raw.magnetometer_raw[i * 3 + 2] = mag_report.z_raw;
-
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 			raw.magnetometer_timestamp[i] = mag_report.timestamp;
 			raw.magnetometer_errcount[i] = mag_report.error_count;
 			raw.magnetometer_temp[i] = mag_report.temperature;
@@ -1223,19 +1144,11 @@ Sensors::baro_poll(struct sensor_combined_s &raw)
 	for (unsigned i = 0; i < _baro_count; i++) {
 		bool baro_updated;
 		orb_check(_baro_sub[i], &baro_updated);
-<<<<<<< HEAD
 
 		if (baro_updated) {
 
 			orb_copy(ORB_ID(sensor_baro), _baro_sub[i], &_barometer);
 
-=======
-
-		if (baro_updated) {
-
-			orb_copy(ORB_ID(sensor_baro), _baro_sub[i], &_barometer);
-
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 			raw.baro_pres_mbar[i] = _barometer.pressure; // Pressure in mbar
 			raw.baro_alt_meter[i] = _barometer.altitude; // Altitude in meters
 			raw.baro_temp_celcius[i] = _barometer.temperature; // Temperature in degrees celcius
@@ -2051,26 +1964,6 @@ Sensors::task_main_trampoline(int argc, char *argv[])
 
 int
 Sensors::init_sensor_class(const struct orb_metadata *meta, int *subs,
-	unsigned *priorities, unsigned *errcount)
-{
-	unsigned group_count = orb_group_count(meta);
-
-	if (group_count > SENSOR_COUNT_MAX) {
-		group_count = SENSOR_COUNT_MAX;
-	}
-
-	for (unsigned i = 0; i < group_count; i++) {
-		if (subs[i] < 0) {
-			subs[i] = orb_subscribe_multi(meta, i);
-			orb_priority(subs[i], (int32_t*)&priorities[i]);
-		}
-	}
-
-	return group_count;
-}
-
-int
-Sensors::init_sensor_class(const struct orb_metadata *meta, int *subs,
 	uint32_t *priorities, uint32_t *errcount)
 {
 	unsigned group_count = orb_group_count(meta);
@@ -2129,14 +2022,11 @@ Sensors::task_main()
 	 * do subscriptions
 	 */
 
-<<<<<<< HEAD
 	unsigned gcount_prev = _gyro_count;
 	unsigned mcount_prev = _mag_count;
 	unsigned acount_prev = _accel_count;
 	unsigned bcount_prev = _baro_count;
 
-=======
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 	_gyro_count = init_sensor_class(ORB_ID(sensor_gyro), &_gyro_sub[0],
 		&raw.gyro_priority[0], &raw.gyro_errcount[0]);
 
@@ -2149,7 +2039,6 @@ Sensors::task_main()
 	_baro_count = init_sensor_class(ORB_ID(sensor_baro), &_baro_sub[0],
 		&raw.baro_priority[0], &raw.baro_errcount[0]);
 
-<<<<<<< HEAD
 	if (gcount_prev != _gyro_count ||
 	    mcount_prev != _mag_count ||
 	    acount_prev != _accel_count ||
@@ -2159,34 +2048,16 @@ Sensors::task_main()
 		parameter_update_poll(true);
 	}
 
-=======
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 	_rc_sub = orb_subscribe(ORB_ID(input_rc));
 	_diff_pres_sub = orb_subscribe(ORB_ID(differential_pressure));
 	_vcontrol_mode_sub = orb_subscribe(ORB_ID(vehicle_control_mode));
 	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 	_rc_parameter_map_sub = orb_subscribe(ORB_ID(rc_parameter_map));
 	_manual_control_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
-<<<<<<< HEAD
-	_laser_sub = orb_subscribe(ORB_ID(laser_msg));
-=======
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 
 	/* rate limit vehicle status updates to 5Hz */
 	orb_set_interval(_vcontrol_mode_sub, 200);
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-	/* rate limit gyro to 250 Hz (the gyro signal is lowpassed accordingly earlier) */
-	orb_set_interval(_gyro_sub, 4);
-
-	orb_set_interval(_laser_sub, 75);
-	orb_set_interval(_manual_control_sub, 75);
-
-=======
->>>>>>> PX4/master
-=======
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 	/*
 	 * do advertisements
 	 */
@@ -2283,17 +2154,10 @@ Sensors::task_main()
 
 			_mag_count = init_sensor_class(ORB_ID(sensor_mag), &_mag_sub[0],
 				&raw.magnetometer_priority[0], &raw.magnetometer_errcount[0]);
-<<<<<<< HEAD
 
 			_accel_count = init_sensor_class(ORB_ID(sensor_accel), &_accel_sub[0],
 				&raw.accelerometer_priority[0], &raw.accelerometer_errcount[0]);
 
-=======
-
-			_accel_count = init_sensor_class(ORB_ID(sensor_accel), &_accel_sub[0],
-				&raw.accelerometer_priority[0], &raw.accelerometer_errcount[0]);
-
->>>>>>> 7857bdd029dff2a2d84ec3885f10089ce343b95b
 			_baro_count = init_sensor_class(ORB_ID(sensor_baro), &_baro_sub[0],
 				&raw.baro_priority[0], &raw.baro_errcount[0]);
 
