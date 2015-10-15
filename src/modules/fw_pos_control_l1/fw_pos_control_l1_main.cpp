@@ -81,6 +81,7 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/tecs_status.h>
 #include <systemlib/param/param.h>
 #include <systemlib/err.h>
 #include <systemlib/pid/pid.h>
@@ -1227,9 +1228,6 @@ FixedwingPositionControl::control_position(const math::Vector<2> &current_positi
 
 				_l1_control.navigate_heading(target_bearing, _att.yaw, ground_speed_2d);
 
-				/* limit roll motion to prevent wings from touching the ground first */
-				_att_sp.roll_body = math::constrain(_att_sp.roll_body, math::radians(-10.0f), math::radians(10.0f));
-
 				land_noreturn_horizontal = true;
 
 			} else {
@@ -1241,6 +1239,10 @@ FixedwingPositionControl::control_position(const math::Vector<2> &current_positi
 			_att_sp.roll_body = _l1_control.nav_roll();
 			_att_sp.yaw_body = _l1_control.nav_bearing();
 
+			if (land_noreturn_horizontal) {
+				/* limit roll motion to prevent wings from touching the ground first */
+				_att_sp.roll_body = math::constrain(_att_sp.roll_body, math::radians(-10.0f), math::radians(10.0f));
+			}
 
 			/* Vertical landing control */
 			//xxx: using the tecs altitude controller for slope control for now
@@ -1964,7 +1966,7 @@ FixedwingPositionControl::start()
 	_control_task = px4_task_spawn_cmd("fw_pos_control_l1",
 				       SCHED_DEFAULT,
 				       SCHED_PRIORITY_MAX - 5,
-				       1600,
+				       1300,
 				       (px4_main_t)&FixedwingPositionControl::task_main_trampoline,
 				       nullptr);
 
