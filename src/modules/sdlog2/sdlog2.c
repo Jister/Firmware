@@ -101,6 +101,8 @@
 #include <uORB/topics/vtol_vehicle_status.h>
 #include <uORB/topics/time_offset.h>
 #include <uORB/topics/mc_att_ctrl_status.h>
+#include <uORB/topics/sonar.h>
+#include <uORB/topics/laser_msg.h>
 
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
@@ -1138,6 +1140,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		struct vtol_vehicle_status_s vtol_status;
 		struct time_offset_s time_offset;
 		struct mc_att_ctrl_status_s mc_att_ctrl_status;
+		struct laser_msg_s laser;
+		struct sonar_s sonar;
 	} buf;
 
 	memset(&buf, 0, sizeof(buf));
@@ -1186,6 +1190,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_ENCD_s log_ENCD;
 			struct log_TSYN_s log_TSYN;
 			struct log_MACS_s log_MACS;
+			struct log_SONA_s log_SONA;
+			struct log_LASE_s log_LASE;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1228,6 +1234,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int encoders_sub;
 		int tsync_sub;
 		int mc_att_ctrl_status_sub;
+		int laser_sub;
+		int sonar_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1262,6 +1270,8 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.tsync_sub = -1;
 	subs.mc_att_ctrl_status_sub = -1;
 	subs.encoders_sub = -1;
+	subs.laser_sub = -1;
+	subs.sonar_sub = -1;
 
 	/* add new topics HERE */
 
@@ -1903,6 +1913,22 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_MACS.pitch_rate_integ = buf.mc_att_ctrl_status.pitch_rate_integ;
 			log_msg.body.log_MACS.yaw_rate_integ = buf.mc_att_ctrl_status.yaw_rate_integ;
 			LOGBUFFER_WRITE_AND_COUNT(MACS);
+		}
+
+		if (copy_if_updated(ORB_ID(laser_msg), &subs.laser_sub, &buf.laser)) {
+			log_msg.msg_type = LOG_LASE_MSG;
+			log_msg.body.log_LASE.distance = buf.laser.laser_distance;
+			log_msg.body.log_LASE.angle = buf.laser.laser_angle;
+			LOGBUFFER_WRITE_AND_COUNT(LASE);
+		}
+
+		if (copy_if_updated(ORB_ID(sonar), &subs.sonar_sub, &buf.sonar)) {
+			log_msg.msg_type = LOG_SONA_MSG;
+			log_msg.body.log_SONA.Front = buf.sonar.Front;
+			log_msg.body.log_SONA.Back = buf.sonar.Back;
+			log_msg.body.log_SONA.Left = buf.sonar.Left;
+			log_msg.body.log_SONA.Right = buf.sonar.Right;
+			LOGBUFFER_WRITE_AND_COUNT(SONA);
 		}
 
 		/* signal the other thread new data, but not yet unlock */

@@ -93,9 +93,9 @@
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
 #define Safe_distance                 120.0f
-#define sonar_P                            15.0f
+#define sonar_P                            12.0f
 #define Laser_distance               200.0f
-#define Laser_P                            10.0f
+#define Laser_P                            8.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -1567,7 +1567,7 @@ MulticopterPositionControl::task_main()
 					if(_att_sp.roll_body < -math::radians(20.0f)){
 						_att_sp.roll_body  = -math::radians(20.0f);
 					}
-				}else{/*
+				}else{
 					if((_sonar.Front>50.0f)&&(_sonar.Front<Safe_distance)){
 						if((_sonar.Back>50.0f)&&(_sonar.Back<Safe_distance)){
 							_att_sp.pitch_body = math::radians(sonar_P/((_sonar.Front - _sonar.Back)*(_sonar.Front - _sonar.Back)/10000.0f+0.05f));
@@ -1618,7 +1618,8 @@ MulticopterPositionControl::task_main()
 						if(_att_sp.roll_body < -math::radians(20.0f)){
 							_att_sp.roll_body  = -math::radians(20.0f);
 						}
-					}*/
+					}
+
 				}
 			}
 

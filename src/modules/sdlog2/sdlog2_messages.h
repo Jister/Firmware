@@ -477,6 +477,20 @@ struct log_MACS_s {
 	float yaw_rate_integ;
 };
 
+#define LOG_SONA_MSG 46
+struct log_SONA_s {
+	int32_t Front;
+	int32_t Back;
+	int32_t Left;
+	int32_t Right;
+};
+
+#define LOG_LASE_MSG 47
+struct log_LASE_s {
+	float distance;
+	float angle;
+};
+
 /* WARNING: ID 46 is already in use for ATTC1 */
 
 /********** SYSTEM MESSAGES, ID > 0x80 **********/
@@ -550,6 +564,8 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(ENCD, "qfqf",	"cnt0,vel0,cnt1,vel1"),
 	LOG_FORMAT(TSYN, "Q", 		"TimeOffset"),
 	LOG_FORMAT(MACS, "fff", "RRint,PRint,YRint"),
+	LOG_FORMAT(SONA, "LLLL", "Front,Back,Left,Right"),
+	LOG_FORMAT(LASE, "ff", "Distance,Angle"),
 
 	/* system-level messages, ID >= 0x80 */
 	/* FMT: don't write format of format message, it's useless */
