@@ -366,7 +366,7 @@ private:
 
 
 	int		init_sensor_class(const struct orb_metadata *meta, int *subs,
-				unsigned *priorities, unsigned *errcount);
+				uint32_t *priorities, uint32_t *errcount);
 
 	/**
 	 * Update our local parameter cache.
@@ -825,6 +825,19 @@ Sensors::parameters_update()
 	/* scaling of ADC ticks to battery voltage */
 	if (param_get(_parameter_handles.battery_voltage_scaling, &(_parameters.battery_voltage_scaling)) != OK) {
 		warnx("%s", paramerr);
+	} else if (_parameters.battery_voltage_scaling < 0.0f) {
+		/* apply scaling according to defaults if set to default */
+
+		#ifdef CONFIG_ARCH_BOARD_PX4FMU_V2
+		_parameters.battery_voltage_scaling = 0.0082f;
+		#elif CONFIG_ARCH_BOARD_AEROCORE
+		_parameters.battery_voltage_scaling = 0.0063f;
+		#elif CONFIG_ARCH_BOARD_PX4FMU_V2
+		_parameters.battery_voltage_scaling = 0.00459340659f;
+		#else
+		/* ensure a missing default trips a low voltage lockdown */
+		_parameters.battery_voltage_scaling = 0.00001f;
+		#endif
 	}
 
 	/* scaling of ADC ticks to battery current */
@@ -1399,6 +1412,8 @@ Sensors::parameter_update_poll(bool forced)
 				(void)sprintf(str, "CAL_MAG%u_ID", i);
 				int device_id;
 				failed = failed || (OK != param_get(param_find(str), &device_id));
+				(void)sprintf(str, "CAL_MAG%u_ROT", i);
+				(void)param_find(str);
 
 				if (failed) {
 					px4_close(fd);
@@ -1949,7 +1964,7 @@ Sensors::task_main_trampoline(int argc, char *argv[])
 
 int
 Sensors::init_sensor_class(const struct orb_metadata *meta, int *subs,
-	unsigned *priorities, unsigned *errcount)
+	uint32_t *priorities, uint32_t *errcount)
 {
 	unsigned group_count = orb_group_count(meta);
 
@@ -2007,6 +2022,11 @@ Sensors::task_main()
 	 * do subscriptions
 	 */
 
+	unsigned gcount_prev = _gyro_count;
+	unsigned mcount_prev = _mag_count;
+	unsigned acount_prev = _accel_count;
+	unsigned bcount_prev = _baro_count;
+
 	_gyro_count = init_sensor_class(ORB_ID(sensor_gyro), &_gyro_sub[0],
 		&raw.gyro_priority[0], &raw.gyro_errcount[0]);
 
@@ -2018,6 +2038,15 @@ Sensors::task_main()
 
 	_baro_count = init_sensor_class(ORB_ID(sensor_baro), &_baro_sub[0],
 		&raw.baro_priority[0], &raw.baro_errcount[0]);
+
+	if (gcount_prev != _gyro_count ||
+	    mcount_prev != _mag_count ||
+	    acount_prev != _accel_count ||
+	    bcount_prev != _baro_count) {
+
+		/* reload calibration params */
+		parameter_update_poll(true);
+	}
 
 	_rc_sub = orb_subscribe(ORB_ID(input_rc));
 	_diff_pres_sub = orb_subscribe(ORB_ID(differential_pressure));
