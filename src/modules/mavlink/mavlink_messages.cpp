@@ -72,6 +72,7 @@
 #include <uORB/topics/navigation_capabilities.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/camera_trigger.h>
+#include <uORB/topics/laser_msg.h>
 #include <drivers/drv_rc_input.h>
 #include <drivers/drv_pwm_output.h>
 #include <systemlib/err.h>
