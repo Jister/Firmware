@@ -78,6 +78,7 @@
 #include <uORB/topics/vehicle_local_position_setpoint.h>
 #include <uORB/topics/sonar.h>
 #include <uORB/topics/laser_msg.h>
+#include <uORB/topics/optical_flow.h>
 
 #include <systemlib/systemlib.h>
 #include <mathlib/mathlib.h>
@@ -144,6 +145,7 @@ private:
 	int		_global_vel_sp_sub;		/**< offboard global velocity setpoint */
                             int		_sonar_sub;
                             int		_laser_sub;
+                            int		_flow_sub;
 
 	orb_advert_t	_att_sp_pub;			/**< attitude setpoint publication */
 	orb_advert_t	_local_pos_sp_pub;		/**< vehicle local position setpoint publication */
@@ -161,6 +163,7 @@ private:
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;		/**< vehicle global velocity setpoint */
                             struct sonar_s	                                                        _sonar;
                             struct laser_msg_s	                            _laser;
+                            struct optical_flow_s	                            _flow;
 
 	control::BlockParamFloat _manual_thr_min;
 	control::BlockParamFloat _manual_thr_max;
@@ -336,6 +339,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	_global_vel_sp_sub(-1),
 	_sonar_sub(-1),
 	_laser_sub(-1),
+	_flow_sub(-1),
 
 /* publications */
 	_att_sp_pub(nullptr),
@@ -366,6 +370,7 @@ MulticopterPositionControl::MulticopterPositionControl() :
 	memset(&_global_vel_sp, 0, sizeof(_global_vel_sp));
 	memset(&_sonar,0, sizeof(_sonar));
 	memset(&_laser,0, sizeof(_laser));
+	memset(&_flow,0, sizeof(_flow));
 
 	memset(&_ref_pos, 0, sizeof(_ref_pos));
 
@@ -582,6 +587,12 @@ MulticopterPositionControl::poll_subscriptions()
 
 	if (updated) {
 		orb_copy(ORB_ID(laser_msg), _laser_sub, &_laser);
+	}
+
+	orb_check(_flow_sub, &updated);
+
+	if (updated) {
+		orb_copy(ORB_ID(optical_flow), _flow_sub, &_flow);
 	}
 }
 
@@ -1016,6 +1027,7 @@ MulticopterPositionControl::task_main()
 	_global_vel_sp_sub = orb_subscribe(ORB_ID(vehicle_global_velocity_setpoint));
 	_sonar_sub = orb_subscribe(ORB_ID(sonar));
 	_laser_sub = orb_subscribe(ORB_ID(laser_msg));
+	_flow_sub = orb_subscribe(ORB_ID(optical_flow));
 
 
 	parameters_update(true);
@@ -1155,6 +1167,9 @@ MulticopterPositionControl::task_main()
 
 				if (_run_alt_control) {
 					_vel_sp(2) = (_pos_sp(2) - _pos(2)) * _params.pos_p(2);
+					if((_flow.ground_distance_m<3.0f) && (_flow.ground_distance_m>0.5f) && (_manual.loiter_switch==3) && (_manual.z>=-0.2f)){
+						_vel_sp(2) = (2.0f - _flow.ground_distance_m) * _params.pos_p(2);
+					}
 				}
 
 				/* make sure velocity setpoint is saturated in xy*/
