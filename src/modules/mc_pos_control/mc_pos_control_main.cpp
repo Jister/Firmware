@@ -1587,7 +1587,7 @@ MulticopterPositionControl::task_main()
 				}
 			}
 
-			if(_manual.loiter_switch==3 && !_control_mode.flag_control_position_enabled){
+			if(_manual.loiter_switch==3 ){
 				if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance)){
 					if(_laser.angle<-22.5f){
 						_att_sp.pitch_body = -math::radians(Laser_P/((_laser.min_distance*_laser.min_distance/10000.0f)+0.05f));
