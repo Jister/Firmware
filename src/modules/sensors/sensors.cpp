@@ -2055,7 +2055,7 @@ Sensors::rc_poll()
 				}
 			}else{
 				float vel = sqrt(local_pos.vx * local_pos.vx + local_pos.vy * local_pos.vy);
-				manual.aux2 = vel / 3.0f * (manual.aux2 + 1.0f) -1.0f ;
+				manual.aux2 = (vel / 6.0f + 0.5) * (manual.aux2 + 1.0f) -1.0f ;
 				if (manual.aux2 > 1.0f)
 				{
 					manual.aux2 = 1.0f;
