@@ -89,12 +89,11 @@
 #define SIGMA			0.000001f
 #define MIN_DIST		0.01f
 #define MANUAL_THROTTLE_MAX_MULTICOPTER	0.9f
-#define Safe_distance                 120.0f
-#define Safe_distance_z_1           400.0f
-#define Safe_distance_z_2           100.0f
+
 #define sonar_P                            12.0f
-#define Laser_distance               180.0f
-#define Laser_P                            10.0f
+#define Laser_distance               300.0f
+#define Laser_distance_pos_mode		400.0f
+#define Laser_P                            30.0f
 
 /**
  * Multicopter position control app start / stop handling function
@@ -657,6 +656,10 @@ MulticopterPositionControl::control_manual(float dt)
 	if (_control_mode.flag_control_altitude_enabled) {
 		/* move altitude setpoint with throttle stick */
 		_sp_move_rate(2) = -scale_control(_manual.z - 0.5f, 0.5f, alt_ctl_dz);
+		if((_sonar.sonar_up / 100.0f > 1.0f) && (_sonar.sonar_up / 100.0f < 5.0f))
+		{
+			_sp_move_rate(2) = 1.0f * (500.0f - _sonar.sonar_up) / (500.0f - 100.0f);	
+		}
 	}
 
 	if (_control_mode.flag_control_position_enabled) {
@@ -664,116 +667,112 @@ MulticopterPositionControl::control_manual(float dt)
 		_sp_move_rate(0) = _manual.x;
 		_sp_move_rate(1) = _manual.y;
 		if(_manual.loiter_switch==3){
-		if((_laser.min_distance>50.0f)&&(_laser.min_distance<200.0f)){
-			if(_laser.angle<-22.5f){
-				if(_manual.x < 0.0f){
-					_sp_move_rate(0) = 0.0f;
-				}else{
-					_sp_move_rate(0) = _manual.x;
-				}
-				if(_manual.y > 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
-				}
-			}else if(_laser.angle<22.5f){
-				if(_manual.y > 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
-				}
-			}else if(_laser.angle<67.5f){
-				if(_manual.x > 0.0f){
-					_sp_move_rate(0) = 0.0f;
-				}else{
-					_sp_move_rate(0) = _manual.x;
-				}
-				if(_manual.y > 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
-				}
-			}else if(_laser.angle<112.5f){
-				if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
-					_sp_move_rate(0) = 0.0f;
-				}else{
-					if(_manual.x > 0.0f){
-						_sp_move_rate(0) = 0.0f;
+			if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance_pos_mode)){
+				if(_laser.angle<-22.5f){
+					if(_manual.x <= 0.0f){
+						_sp_move_rate(0) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
 					}else{
 						_sp_move_rate(0) = _manual.x;
 					}
-				}
-			}else if(_laser.angle<157.5f){
-				if(_manual.x > 0.0f){
-					_sp_move_rate(0) = 0.0f;
+					if(_manual.y >= 0.0f){
+						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
+				}else if(_laser.angle<22.5f){
+					if(_manual.y >= 0.0f){
+						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
+				}else if(_laser.angle<67.5f){
+					if(_manual.x >= 0.0f){
+						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(0) = _manual.x;
+					}
+					if(_manual.y >= 0.0f){
+						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
+				}else if(_laser.angle<112.5f){
+					if(_manual.x >= 0.0f){
+						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(0) = _manual.x;
+					}
+				}else if(_laser.angle<157.5f){
+					if(_manual.x >= 0.0f){
+						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(0) = _manual.x;
+					}
+					if(_manual.y <= 0.0f){
+						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
+				}else if(_laser.angle<202.5f){
+					if(_manual.y <= 0.0f){
+						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
 				}else{
-					_sp_move_rate(0) = _manual.x;
-				}
-
-				if(_manual.y < 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
-				}
-			}else if(_laser.angle<202.5f){
-				if(_manual.y < 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
-				}
-			}else{
-				if(_manual.x < 0.0f){
-					_sp_move_rate(0) = 0.0f;
-				}else{
-					_sp_move_rate(0) = _manual.x;
-				}
-				if(_manual.y < 0.0f){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					_sp_move_rate(1) = _manual.y;
+					if(_manual.x <= 0.0f){
+						_sp_move_rate(0) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(0) = _manual.x;
+					}
+					if(_manual.y <= 0.0f){
+						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
+					}else{
+						_sp_move_rate(1) = _manual.y;
+					}
 				}
 			}		
-		}else{
-			if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<200.0f)){
-				if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
-					_sp_move_rate(0) = 0.0f;
-				}else{
-					if(_manual.x > 0.0f){
-						_sp_move_rate(0) = 0.0f;
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-				}
-			}else{
-				if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
-					if(_manual.x < 0.0f){
-						_sp_move_rate(0) = 0.0f;
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-				}
-			}
+		// }else{
+		// 	if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<200.0f)){
+		// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
+		// 			_sp_move_rate(0) = 0.0f;
+		// 		}else{
+		// 			if(_manual.x > 0.0f){
+		// 				_sp_move_rate(0) = 0.0f;
+		// 			}else{
+		// 				_sp_move_rate(0) = _manual.x;
+		// 			}
+		// 		}
+		// 	}else{
+		// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
+		// 			if(_manual.x < 0.0f){
+		// 				_sp_move_rate(0) = 0.0f;
+		// 			}else{
+		// 				_sp_move_rate(0) = _manual.x;
+		// 			}
+		// 		}
+		// 	}
 
-			if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<200.0f)){
-				if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
-					_sp_move_rate(1) = 0.0f;
-				}else{
-					if(_manual.y > 0.0f){
-						_sp_move_rate(1) = 0.0f;
-					}else{	
-						_sp_move_rate(1) = _manual.y;
-					}
-				}
-			}else{
-				if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
-					if(_manual.y < 0.0f){
-						_sp_move_rate(1) = 0.0f;
-					}else{	
-						_sp_move_rate(1) = _manual.y;
-					}
-				}	
-			}
-		}
+		// 	if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<200.0f)){
+		// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
+		// 			_sp_move_rate(1) = 0.0f;
+		// 		}else{
+		// 			if(_manual.y > 0.0f){
+		// 				_sp_move_rate(1) = 0.0f;
+		// 			}else{	
+		// 				_sp_move_rate(1) = _manual.y;
+		// 			}
+		// 		}
+		// 	}else{
+		// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
+		// 			if(_manual.y < 0.0f){
+		// 				_sp_move_rate(1) = 0.0f;
+		// 			}else{	
+		// 				_sp_move_rate(1) = _manual.y;
+		// 			}
+		// 		}	
+		// 	}
+		// }
 		}	
 	}
 
@@ -1573,7 +1572,7 @@ MulticopterPositionControl::task_main()
 				}
 			}
 
-			if(_manual.loiter_switch==3){
+			if(_manual.loiter_switch == 3 && !_control_mode.flag_control_position_enabled){
 				if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance)){
 					if(_laser.angle<-22.5f){
 						_att_sp.pitch_body = -math::radians(Laser_P/((_laser.min_distance*_laser.min_distance/10000.0f)+0.05f));
@@ -1598,73 +1597,74 @@ MulticopterPositionControl::task_main()
 						_att_sp.roll_body = math::radians(Laser_P/((_laser.min_distance*_laser.min_distance/10000.0f)+0.05f));
 					}
 				
-					if(_att_sp.pitch_body > math::radians(20.0f)){
-						_att_sp.pitch_body  = math::radians(20.0f);
+					if(_att_sp.pitch_body > math::radians(25.0f)){
+						_att_sp.pitch_body  = math::radians(25.0f);
 					}
-					if(_att_sp.pitch_body < -math::radians(20.0f)){
-						_att_sp.pitch_body  = -math::radians(20.0f);
+					if(_att_sp.pitch_body < -math::radians(25.0f)){
+						_att_sp.pitch_body  = -math::radians(25.0f);
 					}
 
 				
-					if(_att_sp.roll_body > math::radians(20.0f)){
-						_att_sp.roll_body  = math::radians(20.0f);
+					if(_att_sp.roll_body > math::radians(25.0f)){
+						_att_sp.roll_body  = math::radians(25.0f);
 					}
-					if(_att_sp.roll_body < -math::radians(20.0f)){
-						_att_sp.roll_body  = -math::radians(20.0f);
-					}
-				}else{
-					if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<Safe_distance)){
-						if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
-							_att_sp.pitch_body = math::radians(sonar_P/((_sonar.sonar_front - _sonar.sonar_behind)*(_sonar.sonar_front - _sonar.sonar_behind)/10000.0f+0.05f));
-						}else{
-							_att_sp.pitch_body = math::radians(sonar_P/(_sonar.sonar_front*_sonar.sonar_front/10000.0f+0.05f));
-						}
-				
-						if(_att_sp.pitch_body > math::radians(20.0f)){
-							_att_sp.pitch_body  = math::radians(20.0f);
-						}
-						if(_att_sp.pitch_body < -math::radians(20.0f)){
-							_att_sp.pitch_body  = -math::radians(20.0f);
-						}
-					}else{
-						if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
-							_att_sp.pitch_body = -math::radians(sonar_P/(_sonar.sonar_behind*_sonar.sonar_behind/10000.0f+0.05f));
-						}
-
-						if(_att_sp.pitch_body > math::radians(20.0f)){
-							_att_sp.pitch_body  = math::radians(20.0f);
-						}
-						if(_att_sp.pitch_body < -math::radians(20.0f)){
-							_att_sp.pitch_body  = -math::radians(20.0f);
-						}
-					}
-
-					if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<Safe_distance)){
-						if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
-							_att_sp.roll_body = -math::radians(sonar_P/((_sonar.sonar_right - _sonar.sonar_left)*(_sonar.sonar_right - _sonar.sonar_left)/10000.0f+0.05f));
-						}else{
-							_att_sp.roll_body = -math::radians(sonar_P/(_sonar.sonar_right*_sonar.sonar_right/10000.0f+0.05f));
-						}
-
-						if(_att_sp.roll_body > math::radians(20.0f)){
-							_att_sp.roll_body  = math::radians(20.0f);
-						}
-						if(_att_sp.roll_body < -math::radians(20.0f)){
-							_att_sp.roll_body  = -math::radians(20.0f);
-						}
-					}else{
-						if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
-							_att_sp.roll_body = math::radians(sonar_P/(_sonar.sonar_left*_sonar.sonar_left/10000.0f+0.05f));
-						}
-
-						if(_att_sp.roll_body > math::radians(20.0f)){
-							_att_sp.roll_body  = math::radians(20.0f);
-						}
-						if(_att_sp.roll_body < -math::radians(20.0f)){
-							_att_sp.roll_body  = -math::radians(20.0f);
-						}
+					if(_att_sp.roll_body < -math::radians(25.0f)){
+						_att_sp.roll_body  = -math::radians(25.0f);
 					}
 				}
+				// }else{
+				// 	if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<Safe_distance)){
+				// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
+				// 			_att_sp.pitch_body = math::radians(sonar_P/((_sonar.sonar_front - _sonar.sonar_behind)*(_sonar.sonar_front - _sonar.sonar_behind)/10000.0f+0.05f));
+				// 		}else{
+				// 			_att_sp.pitch_body = math::radians(sonar_P/(_sonar.sonar_front*_sonar.sonar_front/10000.0f+0.05f));
+				// 		}
+				
+				// 		if(_att_sp.pitch_body > math::radians(20.0f)){
+				// 			_att_sp.pitch_body  = math::radians(20.0f);
+				// 		}
+				// 		if(_att_sp.pitch_body < -math::radians(20.0f)){
+				// 			_att_sp.pitch_body  = -math::radians(20.0f);
+				// 		}
+				// 	}else{
+				// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
+				// 			_att_sp.pitch_body = -math::radians(sonar_P/(_sonar.sonar_behind*_sonar.sonar_behind/10000.0f+0.05f));
+				// 		}
+
+				// 		if(_att_sp.pitch_body > math::radians(20.0f)){
+				// 			_att_sp.pitch_body  = math::radians(20.0f);
+				// 		}
+				// 		if(_att_sp.pitch_body < -math::radians(20.0f)){
+				// 			_att_sp.pitch_body  = -math::radians(20.0f);
+				// 		}
+				// 	}
+
+				// 	if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<Safe_distance)){
+				// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
+				// 			_att_sp.roll_body = -math::radians(sonar_P/((_sonar.sonar_right - _sonar.sonar_left)*(_sonar.sonar_right - _sonar.sonar_left)/10000.0f+0.05f));
+				// 		}else{
+				// 			_att_sp.roll_body = -math::radians(sonar_P/(_sonar.sonar_right*_sonar.sonar_right/10000.0f+0.05f));
+				// 		}
+
+				// 		if(_att_sp.roll_body > math::radians(20.0f)){
+				// 			_att_sp.roll_body  = math::radians(20.0f);
+				// 		}
+				// 		if(_att_sp.roll_body < -math::radians(20.0f)){
+				// 			_att_sp.roll_body  = -math::radians(20.0f);
+				// 		}
+				// 	}else{
+				// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
+				// 			_att_sp.roll_body = math::radians(sonar_P/(_sonar.sonar_left*_sonar.sonar_left/10000.0f+0.05f));
+				// 		}
+
+				// 		if(_att_sp.roll_body > math::radians(20.0f)){
+				// 			_att_sp.roll_body  = math::radians(20.0f);
+				// 		}
+				// 		if(_att_sp.roll_body < -math::radians(20.0f)){
+				// 			_att_sp.roll_body  = -math::radians(20.0f);
+				// 		}
+				// 	}
+				// }
 			}
 
 			/* construct attitude setpoint rotation matrix */
