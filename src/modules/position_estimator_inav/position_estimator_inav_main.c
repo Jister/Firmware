@@ -81,6 +81,7 @@
 #define MIN_VALID_W 0.00001f
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
+#define DELAY_VICON 0.3f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -640,6 +641,75 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			}
 
 
+			// /* check no vision circuit breaker is set */
+			// if (params.no_vision != CBRK_NO_VISION_KEY) {
+			// 	/* vehicle vision position */
+			// 	orb_check(vision_position_estimate_sub, &updated);
+
+			// 	if (updated) {
+			// 		orb_copy(ORB_ID(vision_position_estimate), vision_position_estimate_sub, &vision);
+
+			// 		static float last_vision_x = 0.0f;
+			// 		static float last_vision_y = 0.0f;
+			// 		static float last_vision_z = 0.0f;
+
+			// 		/* reset position estimate on first vision update */
+			// 		if (!vision_valid) {
+			// 			x_est[0] = vision.x;
+			// 			x_est[1] = vision.vx;
+			// 			y_est[0] = vision.y;
+			// 			y_est[1] = vision.vy;
+			// 			/* only reset the z estimate if the z weight parameter is not zero */
+			// 			if (params.w_z_vision_p > MIN_VALID_W)
+			// 			{
+			// 				z_est[0] = vision.z;
+			// 				z_est[1] = vision.vz;
+			// 			}
+
+			// 			vision_valid = true;
+
+			// 			last_vision_x = vision.x;
+			// 			last_vision_y = vision.y;
+			// 			last_vision_z = vision.z;
+
+			// 			warnx("VISION estimate valid");
+			// 			mavlink_log_info(mavlink_fd, "[inav] VISION estimate valid");
+			// 		}
+
+			// 		 calculate correction for position 
+			// 		corr_vision[0][0] = vision.x - x_est[0];
+			// 		corr_vision[1][0] = vision.y - y_est[0];
+			// 		corr_vision[2][0] = vision.z - z_est[0];
+
+			// 		static hrt_abstime last_vision_time = 0;
+
+			// 		float vision_dt = (vision.timestamp_boot - last_vision_time) / 1e6f;
+			// 		last_vision_time = vision.timestamp_boot;
+
+			// 		if (vision_dt > 0.000001f && vision_dt < 0.2f) {
+			// 			vision.vx = (vision.x - last_vision_x) / vision_dt;
+			// 			vision.vy = (vision.y - last_vision_y) / vision_dt;
+			// 			vision.vz = (vision.z - last_vision_z) / vision_dt;
+
+			// 			last_vision_x = vision.x;
+			// 			last_vision_y = vision.y;
+			// 			last_vision_z = vision.z;
+
+			// 			/* calculate correction for velocity */
+			// 			corr_vision[0][1] = vision.vx - x_est[1];
+			// 			corr_vision[1][1] = vision.vy - y_est[1];
+			// 			corr_vision[2][1] = vision.vz - z_est[1];
+			// 		} else {
+			// 			/* assume zero motion */
+			// 			corr_vision[0][1] = 0.0f - x_est[1];
+			// 			corr_vision[1][1] = 0.0f - y_est[1];
+			// 			corr_vision[2][1] = 0.0f - z_est[1];
+			// 		}
+
+			// 	}
+				
+			// }
+
 			/* check no vision circuit breaker is set */
 			if (params.no_vision != CBRK_NO_VISION_KEY) {
 				/* vehicle vision position */
@@ -648,65 +718,48 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 				if (updated) {
 					orb_copy(ORB_ID(vision_position_estimate), vision_position_estimate_sub, &vision);
 
-					static float last_vision_x = 0.0f;
-					static float last_vision_y = 0.0f;
-					static float last_vision_z = 0.0f;
+
+					int est_vicon = buf_ptr - 1 - min(EST_BUF_SIZE - 1, max(0, (int)(DELAY_VICON * 1000000.0f / PUB_INTERVAL)));
+
+					if (est_vicon < 0) {
+						est_vicon += EST_BUF_SIZE;
+					}
+
 
 					/* reset position estimate on first vision update */
 					if (!vision_valid) {
 						x_est[0] = vision.x;
-						x_est[1] = vision.vx;
+						//x_est[1] = vision.vx;
 						y_est[0] = vision.y;
-						y_est[1] = vision.vy;
+						//y_est[1] = vision.vy;
+
 						/* only reset the z estimate if the z weight parameter is not zero */
-						if (params.w_z_vision_p > MIN_VALID_W)
-						{
+						if (params.w_z_vision_p > MIN_VALID_W) {
 							z_est[0] = vision.z;
 							z_est[1] = vision.vz;
 						}
 
 						vision_valid = true;
 
-						last_vision_x = vision.x;
-						last_vision_y = vision.y;
-						last_vision_z = vision.z;
-
+			
 						warnx("VISION estimate valid");
 						mavlink_log_info(mavlink_fd, "[inav] VISION estimate valid");
 					}
-
-					/* calculate correction for position */
-					corr_vision[0][0] = vision.x - x_est[0];
-					corr_vision[1][0] = vision.y - y_est[0];
-					corr_vision[2][0] = vision.z - z_est[0];
-
-					static hrt_abstime last_vision_time = 0;
-
-					float vision_dt = (vision.timestamp_boot - last_vision_time) / 1e6f;
-					last_vision_time = vision.timestamp_boot;
-
-					if (vision_dt > 0.000001f && vision_dt < 0.2f) {
-						vision.vx = (vision.x - last_vision_x) / vision_dt;
-						vision.vy = (vision.y - last_vision_y) / vision_dt;
-						vision.vz = (vision.z - last_vision_z) / vision_dt;
-
-						last_vision_x = vision.x;
-						last_vision_y = vision.y;
-						last_vision_z = vision.z;
-
-						/* calculate correction for velocity */
-						corr_vision[0][1] = vision.vx - x_est[1];
-						corr_vision[1][1] = vision.vy - y_est[1];
-						corr_vision[2][1] = vision.vz - z_est[1];
-					} else {
-						/* assume zero motion */
-						corr_vision[0][1] = 0.0f - x_est[1];
-						corr_vision[1][1] = 0.0f - y_est[1];
-						corr_vision[2][1] = 0.0f - z_est[1];
+					if(fabsf(vision.x) < 0.0001f && fabsf(vision.y) < 0.0001f && fabsf(vision.z) < 0.0001f
+					   && fabsf(vision.vx) < 0.0001f && fabsf(vision.vx) < 0.0001f && fabsf(vision.vx) < 0.0001f){
+						vision_valid = false;
+						mavlink_log_info(mavlink_fd, "[inav] VISION Lost");
 					}
 
+					/* calculate correction for position */
+					corr_vision[0][0] = vision.x - est_buf[est_vicon][0][0];
+					corr_vision[1][0] = vision.y - est_buf[est_vicon][1][0];
+					corr_vision[2][0] = vision.z - est_buf[est_vicon][2][0];
+
+					// corr_vision[0][1] = vision.vx - est_buf[est_vicon][0][1];
+					// corr_vision[1][1] = vision.vy - est_buf[est_vicon][1][1];
+					// corr_vision[2][1] = vision.vz - est_buf[est_vicon][2][1];
 				}
-				
 			}
 
 			/* vehicle GPS position */
@@ -896,9 +949,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		float w_z_gps_p = params.w_z_gps_p * w_gps_z;
 		float w_z_gps_v = params.w_z_gps_v * w_gps_z;
 
-		float w_xy_vision_p = params.w_xy_vision_p;
+		float w_xy_vision_p = 0.4f;
 		float w_xy_vision_v = params.w_xy_vision_v;
-		float w_z_vision_p = params.w_z_vision_p;
+		float w_z_vision_p = 0.0f;
 
 		/* reduce GPS weight if optical flow is good */
 		if (use_flow && flow_accurate) {

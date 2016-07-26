@@ -256,3 +256,6 @@ ORB_DEFINE(sonar_distance, struct sonar_distance_s);
 
 #include "topics/test.h"
 ORB_DEFINE(test, struct test_s);
+
+#include "topics/localsense.h"
+ORB_DEFINE(localsense, struct localsense_s);

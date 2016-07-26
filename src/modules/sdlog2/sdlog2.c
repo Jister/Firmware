@@ -103,6 +103,7 @@
 #include <uORB/topics/sonar_distance.h>
 #include <uORB/topics/laser_distance.h>
 #include <uORB/topics/test.h>
+ #include <uORB/topics/localsense.h>
 
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
@@ -1124,6 +1125,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		struct laser_distance_s laser;
 		struct sonar_distance_s sonar;
 		struct test_s test;
+		struct localsense_s localsense;
 	} buf;
 
 	memset(&buf, 0, sizeof(buf));
@@ -1173,6 +1175,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_SONA_s log_SONA;
 			struct log_LASE_s log_LASE;
 			struct log_TEST_s log_TEST;
+			struct log_LSEN_s log_LSEN;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1218,6 +1221,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int laser_sub;
 		int sonar_sub;
 		int test_sub;
+		int localsense_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1255,6 +1259,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.laser_sub = -1;
 	subs.sonar_sub = -1;
 	subs.test_sub = -1;
+	subs.localsense_sub = -1;
 
 	/* add new topics HERE */
 
@@ -1981,6 +1986,15 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_TEST.corr_vision_vx = buf.test.corr_vision_vx;
 			log_msg.body.log_TEST.corr_vision_vy = buf.test.corr_vision_vy;
 			LOGBUFFER_WRITE_AND_COUNT(TEST);
+		}
+
+		if (copy_if_updated(ORB_ID(localsense), &subs.localsense_sub, &buf.localsense)) {
+			log_msg.msg_type = LOG_LSEN_MSG;
+			log_msg.body.log_LSEN.x = buf.localsense.x;
+			log_msg.body.log_LSEN.y = buf.localsense.y;
+			log_msg.body.log_LSEN.vx = buf.localsense.vx;
+			log_msg.body.log_LSEN.vy = buf.localsense.vy;
+			LOGBUFFER_WRITE_AND_COUNT(LSEN);
 		}
 
 

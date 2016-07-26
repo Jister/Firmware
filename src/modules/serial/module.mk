@@ -1,0 +1,5 @@
+MODULE_COMMAND		= serial
+
+SRCS			= serial.cpp
+
+MODULE_STACKSIZE = 1200
