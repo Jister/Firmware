@@ -75,6 +75,7 @@
 #include <uORB/topics/time_offset.h>
 #include <uORB/topics/sonar_distance.h> //added by Clarence
 #include <uORB/topics/laser_distance.h> //added by Clarence
+#include <uORB/topics/distance_sensor.h> //added by CJ
 
 
 #include "mavlink_ftp.h"
@@ -198,6 +199,7 @@ private:
 	orb_advert_t _time_offset_pub;
 	orb_advert_t _sonar_distance_pub; //publisher for sonar
 	orb_advert_t _laser_distance_pub; //publisher for laser
+	orb_advert_t _distance_sensor_pub; //publisher for distance sensor
 	int _control_mode_sub;
 	int _hil_frames;
 	uint64_t _old_timestamp;

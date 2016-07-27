@@ -126,8 +126,8 @@ int serial_main(int argc, char *argv[])
 
 int serial_thread_main(int argc, char *argv[])
 {
-	int mavlink_fd;
-	mavlink_fd = open(MAVLINK_LOG_DEVICE, 0);
+	//int mavlink_fd;
+	//mavlink_fd = open(MAVLINK_LOG_DEVICE, 0);
 
 	warnx("[serial] starting\n");
 	thread_running = true;
@@ -236,7 +236,7 @@ int serial_thread_main(int argc, char *argv[])
 				pos_pub = orb_advertise(ORB_ID(vision_position_estimate), &localsense);
 			} else {
 				orb_publish(ORB_ID(vision_position_estimate), pos_pub, &localsense);
-				mavlink_log_info(mavlink_fd, "[localsense] position x:%f  y:%f", (double)localsense.x,(double)localsense.y);
+				//mavlink_log_info(mavlink_fd, "[localsense] position x:%f  y:%f", (double)localsense.x,(double)localsense.y);
 				printf("[localsense] position x:%f  y:%f\n", (double)localsense.x,(double)localsense.y);
 			}	
 		}else{

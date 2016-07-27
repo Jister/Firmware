@@ -125,6 +125,7 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_time_offset_pub(-1),
 	_sonar_distance_pub(-1),   //initialize publisher, by Clarence
 	_laser_distance_pub(-1),   //initialize publisher, by Clarence
+	_distance_sensor_pub(-1), 
 	_control_mode_sub(orb_subscribe(ORB_ID(vehicle_control_mode))),
 	_hil_frames(0),
 	_old_timestamp(0),
@@ -1660,6 +1661,8 @@ void MavlinkReceiver::handle_message_sonar_distance(mavlink_message_t *msg)
 
 	sonar_distance_s distance;
 	memset(&distance, 0, sizeof(distance));
+	distance_sensor_s lidar;
+	memset(&lidar, 0, sizeof(lidar));
         	//set values 
 	distance.sonar_front = values.sonar_front;
 	distance.sonar_behind = values.sonar_behind;
@@ -1668,12 +1671,22 @@ void MavlinkReceiver::handle_message_sonar_distance(mavlink_message_t *msg)
 	distance.sonar_up = values.sonar_up;
 	distance.sonar_down = values.sonar_down;
 	distance.sonar_cam = values.sonar_cam;
+
+	lidar.current_distance = values.sonar_down;
+	lidar.min_distance = 0.1f;
+	lidar.max_distance = 30.0f;
         
         //publish
-        	if (_sonar_distance_pub == -1) {
+        if (_sonar_distance_pub == -1) {
 		_sonar_distance_pub = orb_advertise(ORB_ID(sonar_distance), &distance);
 	} else {
 		orb_publish(ORB_ID(sonar_distance), _sonar_distance_pub, &distance);
+	}
+
+	if (_distance_sensor_pub == -1) {
+		_distance_sensor_pub = orb_advertise(ORB_ID(distance_sensor), &lidar);
+	} else {
+		orb_publish(ORB_ID(distance_sensor), _distance_sensor_pub, &lidar);
 	}
 }
 

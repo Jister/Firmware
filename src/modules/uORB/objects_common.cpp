@@ -259,3 +259,6 @@ ORB_DEFINE(test, struct test_s);
 
 #include "topics/localsense.h"
 ORB_DEFINE(localsense, struct localsense_s);
+
+#include "topics/distance_sensor.h"
+ORB_DEFINE(distance_sensor, struct distance_sensor_s);
