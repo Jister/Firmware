@@ -1658,6 +1658,8 @@ void MavlinkReceiver::handle_message_sonar_distance(mavlink_message_t *msg)
 {
 	mavlink_sonar_distance_t values;
 	mavlink_msg_sonar_distance_decode(msg, &values);
+	
+	uint64_t timestamp = hrt_absolute_time();
 
 	sonar_distance_s distance;
 	memset(&distance, 0, sizeof(distance));
@@ -1672,6 +1674,7 @@ void MavlinkReceiver::handle_message_sonar_distance(mavlink_message_t *msg)
 	distance.sonar_down = values.sonar_down;
 	distance.sonar_cam = values.sonar_cam;
 
+	lidar.timestamp = timestamp;
 	lidar.current_distance = values.sonar_down;
 	lidar.min_distance = 0.1f;
 	lidar.max_distance = 30.0f;
