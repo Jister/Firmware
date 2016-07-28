@@ -89,6 +89,7 @@
 #define Lidar_err 0.2f
 #define Flow_module_offset_x 0.0f
 #define Flow_module_offset_y 0.0f
+#define W_z_lidar 1.0f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -1142,7 +1143,13 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			accel_bias_corr[1] -= corr_flow[1] * params.w_xy_flow;
 		}
 
-		accel_bias_corr[2] -= corr_baro * params.w_z_baro * params.w_z_baro;
+		if (use_lidar) {
+			accel_bias_corr[2] -= corr_lidar * W_z_lidar * W_z_lidar;
+		} else {
+			accel_bias_corr[2] -= corr_baro * params.w_z_baro * params.w_z_baro;
+		}
+
+		//accel_bias_corr[2] -= corr_baro * params.w_z_baro * params.w_z_baro;
 
 		/* transform error vector from NED frame to body frame */
 		for (int i = 0; i < 3; i++) {
@@ -1167,6 +1174,14 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 		/* inertial filter correction for altitude */
 		inertial_filter_correct(corr_baro, dt, z_est, 0, params.w_z_baro);
+
+		/* inertial filter correction for altitude */
+		if (use_lidar) {
+			inertial_filter_correct(corr_lidar, dt, z_est, 0, W_z_lidar);
+
+		} else {
+			inertial_filter_correct(corr_baro, dt, z_est, 0, params.w_z_baro);
+		}
 
 		if (use_gps_z) {
 			epv = fminf(epv, gps.epv);
