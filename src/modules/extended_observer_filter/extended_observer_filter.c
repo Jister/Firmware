@@ -14,7 +14,7 @@
 #include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vision_position_estimate.h>
-#include <uORB/topics/localsense.h>
+#include <uORB/topics/test.h>
 #include <mavlink/mavlink_log.h>
 #include <poll.h>
 #include <systemlib/err.h>
@@ -23,11 +23,10 @@
 #include <drivers/drv_hrt.h>
 #include <platforms/px4_defines.h>
 
-#include "inertial_filter.h"
-
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
-#define DELAY_VICON 0.40f
+#define DELAY 0.40f
+#define Average 20
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -35,9 +34,11 @@ static int inertial_filter_task; /**< Handle of deamon task / thread */
 
 static const hrt_abstime vision_topic_timeout = 500000;	// Vision topic timeout = 0.5s
  
-__EXPORT int inertial_filter_main(int argc, char *argv[]);
-int inertial_filter_thread_main(int argc, char *argv[]);
+__EXPORT int extended_observer_filter_main(int argc, char *argv[]);
+int extended_observer_filter_thread_main(int argc, char *argv[]);
 static void usage(const char *reason);
+static float fal(float e, float alpha, float delta);
+static float sign(float x);
 
 static inline int min(int val1, int val2)
 {
@@ -62,7 +63,23 @@ static void usage(const char *reason)
 	exit(1);
 }
 
-int inertial_filter_main(int argc, char *argv[])
+static float fal(float e, float alpha, float delta)
+{
+	if(fabsf(e) > delta)
+		return powf(fabsf(e), alpha)*sign(e);
+	else
+		return e/powf(delta, 1 - alpha);
+}
+
+static float sign(float x)
+{
+	if(x > 0.0f)
+		return 1.0f;
+	else
+		return -1.0f;
+}
+
+int extended_observer_filter_main(int argc, char *argv[])
 {
 	if (argc < 2) {
 		usage("missing command");
@@ -78,7 +95,7 @@ int inertial_filter_main(int argc, char *argv[])
 		thread_should_exit = false;
 		inertial_filter_task = task_spawn_cmd("inertial_filter",
 					       SCHED_DEFAULT, SCHED_PRIORITY_MAX - 5, 5300,
-					       inertial_filter_thread_main,
+					       extended_observer_filter_thread_main,
 					       (argv && argc > 2) ? (char *const *) &argv[2] : (char *const *) NULL);
 		return 0;
 	}
@@ -113,14 +130,14 @@ int inertial_filter_main(int argc, char *argv[])
 /****************************************************************************
  * main
  ****************************************************************************/
-int inertial_filter_thread_main(int argc, char *argv[])
+int extended_observer_filter_thread_main(int argc, char *argv[])
 {
 	int mavlink_fd;
 	mavlink_fd = open(MAVLINK_LOG_DEVICE, 0);
 
-	float x_est[2] = { 0.0f, 0.0f };	// pos, vel
-	float y_est[2] = { 0.0f, 0.0f };	// pos, vel
-	float z_est[2] = { 0.0f, 0.0f };	// pos, vel
+	float x_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
+	float y_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
+	float z_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
 
 	float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
 	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix buffer
@@ -129,26 +146,28 @@ int inertial_filter_thread_main(int argc, char *argv[])
 
 	int buf_ptr = 0;
 
-	float x_est_prev[2], y_est_prev[2], z_est_prev[2];
+	float x_est_prev[3], y_est_prev[3], z_est_prev[3];
 	memset(x_est_prev, 0, sizeof(x_est_prev));
 	memset(y_est_prev, 0, sizeof(y_est_prev));
 	memset(z_est_prev, 0, sizeof(z_est_prev));
 
 	hrt_abstime accel_timestamp = 0;
-	
 	hrt_abstime pub_last = hrt_absolute_time();
-
 	hrt_abstime t_prev = 0;
 
 	/* store error when sensor updates, but correct on each time step to avoid jumps in estimated value */
 	float acc[] = { 0.0f, 0.0f, 0.0f };	// N E D
 	float acc_bias[] = { 0.0f, 0.0f, 0.0f };	// body frame
 
-	float corr_vision[3][2] = {
-		{ 0.0f, 0.0f },		// N (pos, vel)
-		{ 0.0f, 0.0f },		// E (pos, vel)
-		{ 0.0f, 0.0f },		// D (pos, vel)
-	};
+	float corr_vision[3] = { 0.0f, 0.0f, 0.0f };
+
+	//parameter of extended observer filter
+	float beta0 = 1.0f;
+	float beta1 = 1.25f;
+	float beta2 = 1.8f;
+	float delta = 0.02f;
+
+	float vel_buf[Average][2];
 
 	bool vision_valid = false;		// vision is valid
 	
@@ -159,8 +178,8 @@ int inertial_filter_thread_main(int argc, char *argv[])
 	memset(&att, 0, sizeof(att));
 	struct vision_position_estimate_s vision;
 	memset(&vision, 0, sizeof(vision));
-	struct localsense_s localsense_pos;
-	memset(&localsense_pos, 0, sizeof(localsense_pos));
+	struct test_s test;
+	memset(&test, 0, sizeof(test));
 
 	/* subscribe */
 	int sensor_combined_sub = orb_subscribe(ORB_ID(sensor_combined));
@@ -168,7 +187,7 @@ int inertial_filter_thread_main(int argc, char *argv[])
 	int vision_position_estimate_sub = orb_subscribe(ORB_ID(vision_position_estimate));
 
 	/* advertise */
-	orb_advert_t localsense_position_pub = orb_advertise(ORB_ID(localsense), &localsense_pos);
+	orb_advert_t predict_position_pub = orb_advertise(ORB_ID(test), &test);
 
 	thread_running = true;
 
@@ -229,7 +248,7 @@ int inertial_filter_thread_main(int argc, char *argv[])
 			if (updated) {
 				orb_copy(ORB_ID(vision_position_estimate), vision_position_estimate_sub, &vision);
 
-				int est_vicon = buf_ptr - 1 - min(EST_BUF_SIZE - 1, max(0, (int)(DELAY_VICON * 1000000.0f / PUB_INTERVAL)));
+				int est_vicon = buf_ptr - 1 - min(EST_BUF_SIZE - 1, max(0, (int)(DELAY * 1000000.0f / PUB_INTERVAL)));
 
 				if (est_vicon < 0) {
 					est_vicon += EST_BUF_SIZE;
@@ -245,15 +264,15 @@ int inertial_filter_thread_main(int argc, char *argv[])
 					warnx("Localsense estimate valid");
 					mavlink_log_info(mavlink_fd, "[inav] Localsense estimate valid");
 				}
-				if(fabsf(vision.x) < 0.0001f && fabsf(vision.y) < 0.0001f){
+				if(fabsf(vision.x - x_est_prev[0]) < 0.0001f && fabsf(vision.y - y_est_prev[0]) < 0.0001f){
 					vision_valid = false;
 					mavlink_log_info(mavlink_fd, "[inav] Localsense Lost");
 				}
 
 				/* calculate correction for position */
-				corr_vision[0][0] = vision.x - est_buf[est_vicon][0][0];
-				corr_vision[1][0] = vision.y - est_buf[est_vicon][1][0];
-				corr_vision[2][0] = vision.z - est_buf[est_vicon][2][0];
+				corr_vision[0] = est_buf[est_vicon][0][0] - vision.x ;
+				corr_vision[1] = est_buf[est_vicon][1][0] - vision.y ;
+				corr_vision[2] = est_buf[est_vicon][2][0] - vision.z ;
 			}
 		}
 
@@ -263,47 +282,23 @@ int inertial_filter_thread_main(int argc, char *argv[])
 			warnx("Localsense timeout");
 			mavlink_log_info(mavlink_fd, "[inav] Localsense timeout");
 		}
-	
+
 		float dt = t_prev > 0 ? (t - t_prev) / 1000000.0f : 0.0f;
 		dt = fmaxf(fminf(0.02, dt), 0.0002);		// constrain dt from 0.2 to 20 ms
 		t_prev = t;
 
-		float w_xy_vision_p = 0.5f;
-		float w_xy_vision_v = 0.0f;
-
-		/* accelerometer bias correction for GPS (use buffered rotation matrix) */
-		float accel_bias_corr[3] = { 0.0f, 0.0f, 0.0f };
-
-		/* accelerometer bias correction for VISION (use buffered rotation matrix) */
-		accel_bias_corr[0] = 0.0f;
-		accel_bias_corr[1] = 0.0f;
-		accel_bias_corr[2] = 0.0f;
 
 		if (vision_valid) {
-			accel_bias_corr[0] -= corr_vision[0][0] * w_xy_vision_p * w_xy_vision_p;
-			accel_bias_corr[0] -= corr_vision[0][1] * w_xy_vision_v;
-			accel_bias_corr[1] -= corr_vision[1][0] * w_xy_vision_p * w_xy_vision_p;
-			accel_bias_corr[1] -= corr_vision[1][1] * w_xy_vision_v;
-		}
+			x_est[2] = x_est_prev[2] - beta2 * fal(corr_vision[0], 0.75, delta);
+			x_est[1] = x_est_prev[1] + dt * (x_est_prev[2] + acc[0]) - beta1 * fal(corr_vision[0], 0.5, delta);
+			x_est[0] = x_est_prev[0] + dt * x_est_prev[1] - beta0 * corr_vision[0];
 
-		if (vision_valid) {
-			/* inertial filter prediction for position */
-			inertial_filter_predict(dt, x_est, acc[0]);
-			inertial_filter_predict(dt, y_est, acc[1]);
+			y_est[2] = y_est_prev[2] - beta2 * fal(corr_vision[1], 0.75, delta);
+			y_est[1] = y_est_prev[1] + dt * (y_est_prev[2] + acc[1]) - beta1 * fal(corr_vision[1], 0.5, delta);
+			y_est[0] = y_est_prev[0] + dt * y_est_prev[1] - beta0 * corr_vision[1];
 
-			if (vision_valid) {
-				inertial_filter_correct(corr_vision[0][0], dt, x_est, 0, w_xy_vision_p);
-				inertial_filter_correct(corr_vision[1][0], dt, y_est, 0, w_xy_vision_p);
-
-				// if (w_xy_vision_v > MIN_VALID_W) {
-				// 	inertial_filter_correct(corr_vision[0][1], dt, x_est, 1, w_xy_vision_v);
-				// 	inertial_filter_correct(corr_vision[1][1], dt, y_est, 1, w_xy_vision_v);
-				// }
-			}
 		} else {
-			/* gradually reset xy velocity estimates */
-			inertial_filter_correct(-x_est[1], dt, x_est, 1, 0.5f);
-			inertial_filter_correct(-y_est[1], dt, y_est, 1, 0.5f);
+			
 		}
 
 		if (t > pub_last + PUB_INTERVAL) {
@@ -326,15 +321,38 @@ int inertial_filter_thread_main(int argc, char *argv[])
 				buf_ptr = 0;
 			}
 
+			for(int i = Average-1; i > 0; i--)
+			{
+				vel_buf[i][0] = vel_buf[i-1][0];
+				vel_buf[i][1] = vel_buf[i-1][1];
+			}
+			vel_buf[0][0] = x_est[1];
+			vel_buf[0][1] = y_est[1];
+			float sum_x = 0.0f;
+			float sum_y = 0.0f;
+			for(int i = 0; i < Average; i ++)
+			{
+				sum_x = sum_x + vel_buf[i][0];
+				sum_y = sum_y + vel_buf[i][1];
+			}
+			x_est[1] = sum_x/Average;
+			y_est[1] = sum_y/Average;
+
 			/* publish local position */
-			localsense_pos.x = x_est[0];
-			localsense_pos.vx = x_est[1];
-			localsense_pos.y = y_est[0];
-			localsense_pos.vy = y_est[1];
+			test.local_x = x_est[0];
+			test.local_vx = x_est[1];
+			test.local_y = y_est[0];
+			test.local_vy = y_est[1];
 
-			localsense_pos.timestamp = t;
+			x_est_prev[0] = x_est[0];
+			x_est_prev[1] = x_est[1];
+			x_est_prev[2] = x_est[2];
+			y_est_prev[0] = y_est[0];
+			y_est_prev[1] = y_est[1];
+			y_est_prev[2] = y_est[2];
 
-			orb_publish(ORB_ID(localsense), localsense_position_pub, &localsense_pos);
+
+			orb_publish(ORB_ID(test), predict_position_pub, &test);
 		}
 
 		usleep(10000);

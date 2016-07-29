@@ -259,3 +259,6 @@ ORB_DEFINE(test, struct test_s);
 
 #include "topics/localsense.h"
 ORB_DEFINE(localsense, struct localsense_s);
+
+#include "topics/gps_position.h"
+ORB_DEFINE(gps_position, struct gps_position_s);

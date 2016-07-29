@@ -103,7 +103,8 @@
 #include <uORB/topics/sonar_distance.h>
 #include <uORB/topics/laser_distance.h>
 #include <uORB/topics/test.h>
- #include <uORB/topics/localsense.h>
+#include <uORB/topics/localsense.h>
+#include <uORB/topics/gps_position.h>
 
 #include <systemlib/systemlib.h>
 #include <systemlib/param/param.h>
@@ -1126,6 +1127,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		struct sonar_distance_s sonar;
 		struct test_s test;
 		struct localsense_s localsense;
+		struct gps_position_s gps_position;
 	} buf;
 
 	memset(&buf, 0, sizeof(buf));
@@ -1176,6 +1178,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 			struct log_LASE_s log_LASE;
 			struct log_TEST_s log_TEST;
 			struct log_LSEN_s log_LSEN;
+			struct log_GPST_s log_GPST;
 		} body;
 	} log_msg = {
 		LOG_PACKET_HEADER_INIT(0)
@@ -1222,6 +1225,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 		int sonar_sub;
 		int test_sub;
 		int localsense_sub;
+		int gps_sub;
 	} subs;
 
 	subs.cmd_sub = -1;
@@ -1260,6 +1264,7 @@ int sdlog2_thread_main(int argc, char *argv[])
 	subs.sonar_sub = -1;
 	subs.test_sub = -1;
 	subs.localsense_sub = -1;
+	subs.gps_sub = -1;
 
 	/* add new topics HERE */
 
@@ -1995,6 +2000,15 @@ int sdlog2_thread_main(int argc, char *argv[])
 			log_msg.body.log_LSEN.vx = buf.localsense.vx;
 			log_msg.body.log_LSEN.vy = buf.localsense.vy;
 			LOGBUFFER_WRITE_AND_COUNT(LSEN);
+		}
+
+		if (copy_if_updated(ORB_ID(gps_position), &subs.gps_sub, &buf.gps_position)) {
+			log_msg.msg_type = LOG_GPST_MSG;
+			log_msg.body.log_GPST.x = buf.gps_position.x;
+			log_msg.body.log_GPST.y = buf.gps_position.y;
+			log_msg.body.log_GPST.vx = buf.gps_position.vx;
+			log_msg.body.log_GPST.vy = buf.gps_position.vy;
+			LOGBUFFER_WRITE_AND_COUNT(GPST);
 		}
 
 

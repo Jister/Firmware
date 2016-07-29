@@ -113,6 +113,22 @@ static inline int max(int val1, int val2)
 	return (val1 > val2) ? val1 : val2;
 }
 
+static float fal(float e, float alpha, float delta)
+{
+	if(fabsf(e) > delta)
+		return powf(fabsf(e), alpha)*sign(e);
+	else
+		return e/powf(delta, 1 - alpha);
+}
+
+static float sign(float x)
+{
+	if(x > 0.0f)
+		return 1.0f;
+	else
+		return -1.0f;
+}
+
 /**
  * Print the correct usage.
  */
@@ -291,6 +307,8 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		{ 0.0f, 0.0f },		// E (pos, vel)
 		{ 0.0f, 0.0f },		// D (pos, vel)
 	};
+
+	float err_localsense[3] = {0.0f, 0.0f, 0.0f};
 
 	float corr_sonar = 0.0f;
 	float corr_sonar_filtered = 0.0f;
@@ -756,6 +774,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 					corr_vision[1][0] = vision.y - est_buf[est_vicon][1][0];
 					corr_vision[2][0] = vision.z - est_buf[est_vicon][2][0];
 
+					err_localsense[0] = est_buf[est_vicon][0][0] - vision.x;
+					err_localsense[1] = est_buf[est_vicon][1][0] - vision.y;
+					err_localsense[2] = est_buf[est_vicon][2][0] - vision.z;
 					// corr_vision[0][1] = vision.vx - est_buf[est_vicon][0][1];
 					// corr_vision[1][1] = vision.vy - est_buf[est_vicon][1][1];
 					// corr_vision[2][1] = vision.vz - est_buf[est_vicon][2][1];
@@ -869,16 +890,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 				gps_updates++;
 			}
 		}
-
-		//orb_publish(ORB_ID(vision_position_estimate), vision_position_estimate_pub, &vision);
-		test.vision_x = vision.x;
-		test.vision_y = vision.y;
-		test.vision_vx = vision.vx;
-		test.vision_vy = vision.vy;
-		test.corr_vision_x = corr_vision[0][0];
-		test.corr_vision_y = corr_vision[1][0];
-		test.corr_vision_vx = corr_vision[0][1];
-		test.corr_vision_vy= corr_vision[1][1];
 
 		/* check for timeout on FLOW topic */
 		if ((flow_valid || sonar_valid) && t > flow.timestamp + flow_topic_timeout) {

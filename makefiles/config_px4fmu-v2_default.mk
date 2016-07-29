@@ -95,6 +95,8 @@ MODULES 	+= modules/vtol_att_control
 # Add by CJ
 MODULES 	+= modules/serial
 MODULES 	+= modules/inertial_filter
+MODULES 	+= modules/inertial_filter_gps
+MODULES 	+= modules/extended_observer_filter
 
 #
 # Logging

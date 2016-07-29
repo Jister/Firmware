@@ -505,6 +505,14 @@ struct log_LSEN_s {
 	float vy;
 };
 
+#define LOG_GPST_MSG 52
+struct log_GPST_s {
+	float x;
+	float y;
+	float vx;
+	float vy;
+};
+
 
 /********** SYSTEM MESSAGES, ID > 0x80 **********/
 
@@ -580,6 +588,7 @@ static const struct log_format_s log_formats[] = {
 	LOG_FORMAT(LASE, "ffff", "Distance,Angle,X,Y"),
 	LOG_FORMAT(TEST, "ffffffffffff", "L_x,L_y,L_vx,L_vy,V_x,V_y,V_vx,V_vy,C_x,C_y,C_vx,C_vy"),
 	LOG_FORMAT(LSEN, "ffff", "X,Y,VX,VY"),
+	LOG_FORMAT(GPST, "ffff", "X,Y,VX,VY"),
 	
 	/* system-level messages, ID >= 0x80 */
 	/* FMT: don't write format of format message, it's useless */
