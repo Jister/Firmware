@@ -81,7 +81,7 @@
 #define MIN_VALID_W 0.00001f
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
-#define DELAY_VICON 0.3f
+#define DELAY_VICON 0.2f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -235,9 +235,9 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	int mavlink_fd;
 	mavlink_fd = open(MAVLINK_LOG_DEVICE, 0);
 
-	float x_est[2] = { 0.0f, 0.0f };	// pos, vel
-	float y_est[2] = { 0.0f, 0.0f };	// pos, vel
-	float z_est[2] = { 0.0f, 0.0f };	// pos, vel
+	float x_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
+	float y_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
+	float z_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
 
 	float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
 	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix buffer
@@ -258,7 +258,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	float eph_vision = 0.2f;
 	float epv_vision = 0.2f;
 
-	float x_est_prev[2], y_est_prev[2], z_est_prev[2];
+	float x_est_prev[3], y_est_prev[3], z_est_prev[3];
 	memset(x_est_prev, 0, sizeof(x_est_prev));
 	memset(y_est_prev, 0, sizeof(y_est_prev));
 	memset(z_est_prev, 0, sizeof(z_est_prev));
@@ -309,6 +309,14 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	};
 
 	float err_localsense[3] = {0.0f, 0.0f, 0.0f};
+
+	float beta0 = 1.0f;
+	float beta1 = 1.25f;
+	float beta2 = 1.8f;
+	float delta = 0.02f;
+
+	float vel_buf[Average][2];
+	memset(vel_buf, 0, sizeof(vel_buf));
 
 	float corr_sonar = 0.0f;
 	float corr_sonar_filtered = 0.0f;
@@ -1094,25 +1102,17 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		}
 
 		if (can_estimate_xy) {
-			/* inertial filter prediction for position */
-			inertial_filter_predict(dt, x_est, acc[0]);
-			inertial_filter_predict(dt, y_est, acc[1]);
-
-			if (!(isfinite(x_est[0]) && isfinite(x_est[1]) && isfinite(y_est[0]) && isfinite(y_est[1]))) {
-				write_debug_log("BAD ESTIMATE AFTER PREDICTION", dt, x_est, y_est, z_est, x_est_prev, y_est_prev, z_est_prev, acc, corr_gps, w_xy_gps_p, w_xy_gps_v);
-				memcpy(x_est, x_est_prev, sizeof(x_est));
-				memcpy(y_est, y_est_prev, sizeof(y_est));
-			}
-
-			/* inertial filter correction for position */
-			if (use_flow) {
-				eph = fminf(eph, eph_flow);
-
-				inertial_filter_correct(corr_flow[0], dt, x_est, 1, params.w_xy_flow * w_flow);
-				inertial_filter_correct(corr_flow[1], dt, y_est, 1, params.w_xy_flow * w_flow);
-			}
-
 			if (use_gps_xy) {
+				/* inertial filter prediction for position */
+				inertial_filter_predict(dt, x_est, acc[0]);
+				inertial_filter_predict(dt, y_est, acc[1]);
+
+				if (!(isfinite(x_est[0]) && isfinite(x_est[1]) && isfinite(y_est[0]) && isfinite(y_est[1]))) {
+					write_debug_log("BAD ESTIMATE AFTER PREDICTION", dt, x_est, y_est, z_est, x_est_prev, y_est_prev, z_est_prev, acc, corr_gps, w_xy_gps_p, w_xy_gps_v);
+					memcpy(x_est, x_est_prev, sizeof(x_est));
+					memcpy(y_est, y_est_prev, sizeof(y_est));
+				}
+
 				eph = fminf(eph, gps.eph);
 
 				inertial_filter_correct(corr_gps[0][0], dt, x_est, 0, w_xy_gps_p);
@@ -1125,36 +1125,21 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			}
 
 			if (use_vision_xy) {
-				eph = fminf(eph, eph_vision);
+				x_est[2] = x_est_prev[2] - beta2 * fal(err_localsense[0], 0.75, delta);
+				x_est[1] = x_est_prev[1] + dt * (x_est_prev[2] + acc[0]) - beta1 * fal(err_localsense[0], 0.5, delta);
+				x_est[0] = x_est_prev[0] + dt * x_est_prev[1] - beta0 * err_localsense[0];
 
-				inertial_filter_correct(corr_vision[0][0], dt, x_est, 0, w_xy_vision_p);
-				inertial_filter_correct(corr_vision[1][0], dt, y_est, 0, w_xy_vision_p);
+				y_est[2] = y_est_prev[2] - beta2 * fal(err_localsense[1], 0.75, delta);
+				y_est[1] = y_est_prev[1] + dt * (y_est_prev[2] + acc[1]) - beta1 * fal(err_localsense[1], 0.5, delta);
+				y_est[0] = y_est_prev[0] + dt * y_est_prev[1] - beta0 * err_localsense[1];
 
-				if (w_xy_vision_v > MIN_VALID_W) {
-					inertial_filter_correct(corr_vision[0][1], dt, x_est, 1, w_xy_vision_v);
-					inertial_filter_correct(corr_vision[1][1], dt, y_est, 1, w_xy_vision_v);
-				}
 			}
-
-			if (!(isfinite(x_est[0]) && isfinite(x_est[1]) && isfinite(y_est[0]) && isfinite(y_est[1]))) {
-				write_debug_log("BAD ESTIMATE AFTER CORRECTION", dt, x_est, y_est, z_est, x_est_prev, y_est_prev, z_est_prev, acc, corr_gps, w_xy_gps_p, w_xy_gps_v);
-				memcpy(x_est, x_est_prev, sizeof(x_est));
-				memcpy(y_est, y_est_prev, sizeof(y_est));
-				memset(corr_gps, 0, sizeof(corr_gps));
-				memset(corr_vision, 0, sizeof(corr_vision));
-				memset(corr_flow, 0, sizeof(corr_flow));
-
-			} else {
-				memcpy(x_est_prev, x_est, sizeof(x_est));
-				memcpy(y_est_prev, y_est, sizeof(y_est));
-			}
+		
 		} else {
 			/* gradually reset xy velocity estimates */
 			inertial_filter_correct(-x_est[1], dt, x_est, 1, params.w_xy_res_v);
 			inertial_filter_correct(-y_est[1], dt, y_est, 1, params.w_xy_res_v);
 		}
-		test.vision_valid=vision_valid;
-		orb_publish(ORB_ID(test), test_pub, &test);
 
 		if (verbose_mode) {
 			/* print updates rate */
@@ -1178,9 +1163,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 
 		if (t > pub_last + PUB_INTERVAL) {
 			pub_last = t;
-
-			x_est[1] = 0.7f * local_pos.vx + 0.3f * x_est[1];
-			y_est[1] = 0.7f * local_pos.vy + 0.3f * y_est[1];
               
 			/* push current estimate to buffer */
 			est_buf[buf_ptr][0][0] = x_est[0];
@@ -1213,6 +1195,13 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			local_pos.dist_bottom_valid = dist_bottom_valid;
 			local_pos.eph = eph;
 			local_pos.epv = epv;
+
+			x_est_prev[0] = x_est[0];
+			x_est_prev[1] = x_est[1];
+			x_est_prev[2] = x_est[2];
+			y_est_prev[0] = y_est[0];
+			y_est_prev[1] = y_est[1];
+			y_est_prev[2] = y_est[2];
 
 			if (local_pos.dist_bottom_valid) {
 				local_pos.dist_bottom = -z_est[0] - surface_offset;

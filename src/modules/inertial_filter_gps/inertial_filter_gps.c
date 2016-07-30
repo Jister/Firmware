@@ -30,6 +30,7 @@
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
 #define Delay_gps 0.2f
 #define W_xy_gps_p 1.0f
+#define W_xy_gps_v 2.0f
 #define W_acc_bias 0.05f
 #define W_xy_res_v 0.5f
 
@@ -87,7 +88,7 @@ int inertial_filter_gps_main(int argc, char *argv[])
 
 		thread_should_exit = false;
 		inertial_filter_gps_task = task_spawn_cmd("inertial_filter_gps",
-					       SCHED_DEFAULT, SCHED_PRIORITY_MAX - 5, 5000,
+					       SCHED_DEFAULT, SCHED_PRIORITY_DEFAULT - 5, 5000,
 					       inertial_filter_gps_thread_main,
 					       (argv) ? (char * const *) &argv[2] : (char * const *) NULL);
 		exit(0);
@@ -367,7 +368,7 @@ int inertial_filter_gps_thread_main(int argc, char *argv[])
 		bool can_estimate_xy = (eph < max_eph_epv) || use_gps_xy;
 
 		float w_xy_gps_p = W_xy_gps_p * w_gps_xy;
-		float w_xy_gps_v = W_xy_gps_p * w_gps_xy;
+		float w_xy_gps_v = W_xy_gps_v * w_gps_xy;
 
 		/* accelerometer bias correction for GPS (use buffered rotation matrix) */
 		float accel_bias_corr[3] = { 0.0f, 0.0f, 0.0f };

@@ -48,5 +48,5 @@ land_detector start multicopter
 serial start
 inertial_filter start
 inertial_filter_gps start
-extended_observer_filter start
+#extended_observer_filter start
 

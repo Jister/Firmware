@@ -81,7 +81,7 @@
 #define MIN_VALID_W 0.00001f
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
-#define DELAY_VICON 0.3f
+#define DELAY_VICON 0.4f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -330,8 +330,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	memset(&vision, 0, sizeof(vision));
 	struct vehicle_global_position_s global_pos;
 	memset(&global_pos, 0, sizeof(global_pos));
-	struct test_s test;
-	memset(&test, 0, sizeof(test));
 
 	/* subscribe */
 	int parameter_update_sub = orb_subscribe(ORB_ID(parameter_update));
@@ -349,7 +347,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 	orb_advert_t vehicle_global_position_pub = -1;
 
 	//orb_advert_t vision_position_estimate_pub = orb_advertise(ORB_ID(vision_position_estimate), &vision);
-	orb_advert_t test_pub = orb_advertise(ORB_ID(test), &test);
 
 
 	struct position_estimator_inav_params params;
@@ -870,16 +867,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			}
 		}
 
-		//orb_publish(ORB_ID(vision_position_estimate), vision_position_estimate_pub, &vision);
-		test.vision_x = vision.x;
-		test.vision_y = vision.y;
-		test.vision_vx = vision.vx;
-		test.vision_vy = vision.vy;
-		test.corr_vision_x = corr_vision[0][0];
-		test.corr_vision_y = corr_vision[1][0];
-		test.corr_vision_vx = corr_vision[0][1];
-		test.corr_vision_vy= corr_vision[1][1];
-
 		/* check for timeout on FLOW topic */
 		if ((flow_valid || sonar_valid) && t > flow.timestamp + flow_topic_timeout) {
 			flow_valid = false;
@@ -949,7 +936,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		float w_z_gps_p = params.w_z_gps_p * w_gps_z;
 		float w_z_gps_v = params.w_z_gps_v * w_gps_z;
 
-		float w_xy_vision_p = 0.4f;
+		float w_xy_vision_p = 0.8f;
 		float w_xy_vision_v = params.w_xy_vision_v;
 		float w_z_vision_p = 0.0f;
 
@@ -1142,8 +1129,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 			inertial_filter_correct(-x_est[1], dt, x_est, 1, params.w_xy_res_v);
 			inertial_filter_correct(-y_est[1], dt, y_est, 1, params.w_xy_res_v);
 		}
-		test.vision_valid=vision_valid;
-		orb_publish(ORB_ID(test), test_pub, &test);
 
 		if (verbose_mode) {
 			/* print updates rate */
@@ -1168,9 +1153,6 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		if (t > pub_last + PUB_INTERVAL) {
 			pub_last = t;
 
-			x_est[1] = 0.7f * local_pos.vx + 0.3f * x_est[1];
-			y_est[1] = 0.7f * local_pos.vy + 0.3f * y_est[1];
-              
 			/* push current estimate to buffer */
 			est_buf[buf_ptr][0][0] = x_est[0];
 			est_buf[buf_ptr][0][1] = x_est[1];

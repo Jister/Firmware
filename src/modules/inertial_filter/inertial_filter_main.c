@@ -27,7 +27,7 @@
 
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
-#define DELAY_VICON 0.40f
+#define DELAY_VICON 0.5f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -77,7 +77,7 @@ int inertial_filter_main(int argc, char *argv[])
 
 		thread_should_exit = false;
 		inertial_filter_task = task_spawn_cmd("inertial_filter",
-					       SCHED_DEFAULT, SCHED_PRIORITY_MAX - 5, 5300,
+					       SCHED_DEFAULT, SCHED_PRIORITY_DEFAULT - 5, 5300,
 					       inertial_filter_thread_main,
 					       (argv && argc > 2) ? (char *const *) &argv[2] : (char *const *) NULL);
 		return 0;
@@ -268,7 +268,7 @@ int inertial_filter_thread_main(int argc, char *argv[])
 		dt = fmaxf(fminf(0.02, dt), 0.0002);		// constrain dt from 0.2 to 20 ms
 		t_prev = t;
 
-		float w_xy_vision_p = 0.5f;
+		float w_xy_vision_p = 0.8f;
 		float w_xy_vision_v = 0.0f;
 
 		/* accelerometer bias correction for GPS (use buffered rotation matrix) */
@@ -337,7 +337,6 @@ int inertial_filter_thread_main(int argc, char *argv[])
 			orb_publish(ORB_ID(localsense), localsense_position_pub, &localsense_pos);
 		}
 
-		usleep(10000);
 	}
 
 	warnx("stopped");

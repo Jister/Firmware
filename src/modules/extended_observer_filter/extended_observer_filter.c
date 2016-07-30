@@ -67,8 +67,10 @@ static float fal(float e, float alpha, float delta)
 {
 	if(fabsf(e) > delta)
 		return powf(fabsf(e), alpha)*sign(e);
+		//return e;
 	else
 		return e/powf(delta, 1 - alpha);
+		//return e;
 }
 
 static float sign(float x)
@@ -94,7 +96,7 @@ int extended_observer_filter_main(int argc, char *argv[])
 
 		thread_should_exit = false;
 		inertial_filter_task = task_spawn_cmd("inertial_filter",
-					       SCHED_DEFAULT, SCHED_PRIORITY_MAX - 5, 5300,
+					       SCHED_DEFAULT, SCHED_PRIORITY_DEFAULT - 5, 5300,
 					       extended_observer_filter_thread_main,
 					       (argv && argc > 2) ? (char *const *) &argv[2] : (char *const *) NULL);
 		return 0;
@@ -137,19 +139,21 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 
 	float x_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
 	float y_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
-	float z_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
+	//float z_est[3] = { 0.0f, 0.0f, 0.0f };	// pos, vel
 
-	float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
-	float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix buffer
-	memset(est_buf, 0, sizeof(est_buf));
-	memset(R_buf, 0, sizeof(R_buf));
+	// float est_buf[EST_BUF_SIZE][3][2];	// estimated position buffer
+	// float R_buf[EST_BUF_SIZE][3][3];	// rotation matrix buffer
+	// memset(est_buf, 0, sizeof(est_buf));
+	// memset(R_buf, 0, sizeof(R_buf));
 
-	int buf_ptr = 0;
+	//int buf_ptr = 0;
 
 	float x_est_prev[3], y_est_prev[3], z_est_prev[3];
 	memset(x_est_prev, 0, sizeof(x_est_prev));
 	memset(y_est_prev, 0, sizeof(y_est_prev));
 	memset(z_est_prev, 0, sizeof(z_est_prev));
+
+	//float vision_prev[3] = { 0.0f, 0.0f, 0.0f };
 
 	hrt_abstime accel_timestamp = 0;
 	hrt_abstime pub_last = hrt_absolute_time();
@@ -157,17 +161,17 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 
 	/* store error when sensor updates, but correct on each time step to avoid jumps in estimated value */
 	float acc[] = { 0.0f, 0.0f, 0.0f };	// N E D
-	float acc_bias[] = { 0.0f, 0.0f, 0.0f };	// body frame
 
 	float corr_vision[3] = { 0.0f, 0.0f, 0.0f };
 
 	//parameter of extended observer filter
 	float beta0 = 1.0f;
-	float beta1 = 1.25f;
-	float beta2 = 1.8f;
+	float beta1 = 2.5f;
+	float beta2 = 5.0f;
 	float delta = 0.02f;
 
 	float vel_buf[Average][2];
+	memset(vel_buf, 0, sizeof(vel_buf));
 
 	bool vision_valid = false;		// vision is valid
 	
@@ -203,7 +207,7 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 
 		if (ret < 0) {
 			/* poll error */
-			mavlink_log_info(mavlink_fd, "[inav] poll error on init");
+			mavlink_log_info(mavlink_fd, "[EOF] poll error on init");
 			continue;
 
 		} else if (ret > 0) {
@@ -220,10 +224,6 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 
 				if (sensor.accelerometer_timestamp != accel_timestamp) {
 					if (att.R_valid) {
-						/* correct accel bias */
-						sensor.accelerometer_m_s2[0] -= acc_bias[0];
-						sensor.accelerometer_m_s2[1] -= acc_bias[1];
-						sensor.accelerometer_m_s2[2] -= acc_bias[2];
 
 						/* transform acceleration vector from body frame to NED frame */
 						for (int i = 0; i < 3; i++) {
@@ -248,31 +248,42 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 			if (updated) {
 				orb_copy(ORB_ID(vision_position_estimate), vision_position_estimate_sub, &vision);
 
-				int est_vicon = buf_ptr - 1 - min(EST_BUF_SIZE - 1, max(0, (int)(DELAY * 1000000.0f / PUB_INTERVAL)));
+				// int est_vicon = buf_ptr - 1 - min(EST_BUF_SIZE - 1, max(0, (int)(DELAY * 1000000.0f / PUB_INTERVAL)));
 
-				if (est_vicon < 0) {
-					est_vicon += EST_BUF_SIZE;
-				}
+				// if (est_vicon < 0) {
+				// 	est_vicon += EST_BUF_SIZE;
+				// }
 
 				/* reset position estimate on first vision update */
 				if (!vision_valid) {
 					x_est[0] = vision.x;
 					y_est[0] = vision.y;
+					y_est_prev[0] = vision.x;
+					y_est_prev[0] = vision.y;
 
 					vision_valid = true;
 		
 					warnx("Localsense estimate valid");
-					mavlink_log_info(mavlink_fd, "[inav] Localsense estimate valid");
+					mavlink_log_info(mavlink_fd, "[EOF] Localsense estimate valid");
 				}
-				if(fabsf(vision.x - x_est_prev[0]) < 0.0001f && fabsf(vision.y - y_est_prev[0]) < 0.0001f){
-					vision_valid = false;
-					mavlink_log_info(mavlink_fd, "[inav] Localsense Lost");
-				}
+				// if(fabsf(vision.x - vision_prev[0]) < 0.0001f && fabsf(vision.y - vision_prev[0]) < 0.0001f){
+				// 	vision_valid = false;
+				// 	mavlink_log_info(mavlink_fd, "[EOF] Same Localsense data");
+				// }
 
 				/* calculate correction for position */
-				corr_vision[0] = est_buf[est_vicon][0][0] - vision.x ;
-				corr_vision[1] = est_buf[est_vicon][1][0] - vision.y ;
-				corr_vision[2] = est_buf[est_vicon][2][0] - vision.z ;
+				
+				// corr_vision[0] = est_buf[est_vicon][0][0] - vision.x ;
+				// corr_vision[1] = est_buf[est_vicon][1][0] - vision.y ;
+				// corr_vision[2] = est_buf[est_vicon][2][0] - vision.z ;
+
+				corr_vision[0] = x_est_prev[0] - vision.x ;
+				corr_vision[1] = y_est_prev[0] - vision.y ;
+				corr_vision[2] = z_est_prev[0] - vision.z ;
+
+				// vision_prev[0] = vision.x;
+				// vision_prev[1] = vision.y;
+				// vision_prev[2] = vision.z;
 			}
 		}
 
@@ -287,39 +298,42 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 		dt = fmaxf(fminf(0.02, dt), 0.0002);		// constrain dt from 0.2 to 20 ms
 		t_prev = t;
 
-
 		if (vision_valid) {
-			x_est[2] = x_est_prev[2] - beta2 * fal(corr_vision[0], 0.75, delta);
+			x_est[2] = x_est_prev[2] - beta2 * fal(corr_vision[0], 0.25, delta);
 			x_est[1] = x_est_prev[1] + dt * (x_est_prev[2] + acc[0]) - beta1 * fal(corr_vision[0], 0.5, delta);
 			x_est[0] = x_est_prev[0] + dt * x_est_prev[1] - beta0 * corr_vision[0];
+			//x_est[0] =  corr_vision[0];
 
-			y_est[2] = y_est_prev[2] - beta2 * fal(corr_vision[1], 0.75, delta);
+			y_est[2] = y_est_prev[2] - beta2 * fal(corr_vision[1], 0.25, delta);
 			y_est[1] = y_est_prev[1] + dt * (y_est_prev[2] + acc[1]) - beta1 * fal(corr_vision[1], 0.5, delta);
 			y_est[0] = y_est_prev[0] + dt * y_est_prev[1] - beta0 * corr_vision[1];
+			//y_est[0] = y_est_prev[0] - beta0 * corr_vision[1];
+
+			//mavlink_log_info(mavlink_fd, "[localsense]  x:%f  vx:%f", (double)x_est[0],(double)x_est[1]);
 
 		} else {
 			
 		}
 
-		if (t > pub_last + PUB_INTERVAL) {
+		if (t > pub_last + PUB_INTERVAL && vision_valid) {
 			pub_last = t;
 
 			/* push current estimate to buffer */
-			est_buf[buf_ptr][0][0] = x_est[0];
-			est_buf[buf_ptr][0][1] = x_est[1];
-			est_buf[buf_ptr][1][0] = y_est[0];
-			est_buf[buf_ptr][1][1] = y_est[1];
-			est_buf[buf_ptr][2][0] = z_est[0];
-			est_buf[buf_ptr][2][1] = z_est[1];
+			// est_buf[buf_ptr][0][0] = x_est[0];
+			// est_buf[buf_ptr][0][1] = x_est[1];
+			// est_buf[buf_ptr][1][0] = y_est[0];
+			// est_buf[buf_ptr][1][1] = y_est[1];
+			// est_buf[buf_ptr][2][0] = z_est[0];
+			// est_buf[buf_ptr][2][1] = z_est[1];
 
-			/* push current rotation matrix to buffer */
-			memcpy(R_buf[buf_ptr], att.R, sizeof(att.R));
+			// /* push current rotation matrix to buffer */
+			// memcpy(R_buf[buf_ptr], att.R, sizeof(att.R));
 
-			buf_ptr++;
+			// buf_ptr++;
 
-			if (buf_ptr >= EST_BUF_SIZE) {
-				buf_ptr = 0;
-			}
+			// if (buf_ptr >= EST_BUF_SIZE) {
+			// 	buf_ptr = 0;
+			// }
 
 			for(int i = Average-1; i > 0; i--)
 			{
@@ -351,11 +365,11 @@ int extended_observer_filter_thread_main(int argc, char *argv[])
 			y_est_prev[1] = y_est[1];
 			y_est_prev[2] = y_est[2];
 
+			mavlink_log_info(mavlink_fd, "[localsense pub]  x:%f  y:%f", (double)x_est[0],(double)y_est[0]);
 
 			orb_publish(ORB_ID(test), predict_position_pub, &test);
 		}
 
-		usleep(10000);
 	}
 
 	warnx("stopped");
