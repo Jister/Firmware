@@ -222,17 +222,19 @@ int serial_thread_main(int argc, char *argv[])
 		}
 		*/
 		if(valid && read_valid){
-			 for(int i = 3; i > 0; i--)
-			 {
-			 	pos_buf[i][0] = pos_buf[i-1][0];
-			 	pos_buf[i][1] = pos_buf[i-1][1];
-			 }
-			 pos_buf[0][0] = localsense.x;
-			 pos_buf[0][1] = localsense.y;
-			 //localsense.x = (pos_buf[7][0] + pos_buf[6][0] + pos_buf[5][0] + pos_buf[4][0] + pos_buf[3][0] + pos_buf[2][0] + pos_buf[1][0] + pos_buf[0][0]) / 8.0f;
-			 //localsense.y = (pos_buf[7][1] + pos_buf[6][1] + pos_buf[5][1] + pos_buf[4][1] + pos_buf[3][1] + pos_buf[2][1] + pos_buf[1][1] + pos_buf[0][1]) / 8.0f;
-			 localsense.x = (pos_buf[3][0] + pos_buf[2][0] + pos_buf[1][0] + pos_buf[0][0]) / 4.0f;
-			 localsense.y = (pos_buf[3][1] + pos_buf[2][1] + pos_buf[1][1] + pos_buf[0][1]) / 4.0f;
+			 // for(int i = 1; i > 0; i--)
+			 // {
+			 // 	pos_buf[i][0] = pos_buf[i-1][0];
+			 // 	pos_buf[i][1] = pos_buf[i-1][1];
+			 // }
+			 // pos_buf[0][0] = localsense.x;
+			 // pos_buf[0][1] = localsense.y;
+			 // //localsense.x = (pos_buf[7][0] + pos_buf[6][0] + pos_buf[5][0] + pos_buf[4][0] + pos_buf[3][0] + pos_buf[2][0] + pos_buf[1][0] + pos_buf[0][0]) / 8.0f;
+			 // //localsense.y = (pos_buf[7][1] + pos_buf[6][1] + pos_buf[5][1] + pos_buf[4][1] + pos_buf[3][1] + pos_buf[2][1] + pos_buf[1][1] + pos_buf[0][1]) / 8.0f;
+			 // // localsense.x = (pos_buf[3][0] + pos_buf[2][0] + pos_buf[1][0] + pos_buf[0][0]) / 4.0f;
+			 // // localsense.y = (pos_buf[3][1] + pos_buf[2][1] + pos_buf[1][1] + pos_buf[0][1]) / 4.0f;
+			 // localsense.x = (pos_buf[1][0] + pos_buf[0][0]) / 2.0f;
+			 // localsense.y = (pos_buf[1][1] + pos_buf[0][1]) / 2.0f;
 			
 			if (pos_pub < 0) {
 				pos_pub = orb_advertise(ORB_ID(vision_position_estimate), &localsense);

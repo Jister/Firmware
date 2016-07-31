@@ -81,7 +81,7 @@
 #define MIN_VALID_W 0.00001f
 #define PUB_INTERVAL 10000	// limit publish rate to 100 Hz
 #define EST_BUF_SIZE 250000 / PUB_INTERVAL		// buffer size is 0.5s
-#define DELAY_VICON 0.4f
+#define DELAY_VICON 0.5f
 
 static bool thread_should_exit = false; /**< Deamon exit flag */
 static bool thread_running = false; /**< Deamon status flag */
@@ -936,7 +936,7 @@ int position_estimator_inav_thread_main(int argc, char *argv[])
 		float w_z_gps_p = params.w_z_gps_p * w_gps_z;
 		float w_z_gps_v = params.w_z_gps_v * w_gps_z;
 
-		float w_xy_vision_p = 0.8f;
+		float w_xy_vision_p = 1.0f;
 		float w_xy_vision_v = params.w_xy_vision_v;
 		float w_z_vision_p = 0.0f;
 
