@@ -157,8 +157,8 @@ private:
 	struct position_setpoint_triplet_s		_pos_sp_triplet;	/**< vehicle global position setpoint triplet */
 	struct vehicle_local_position_setpoint_s	_local_pos_sp;		/**< vehicle local position setpoint */
 	struct vehicle_global_velocity_setpoint_s	_global_vel_sp;		/**< vehicle global velocity setpoint */
-                            struct sonar_distance_s	                                                        _sonar;
-                            struct laser_distance_s	                            _laser;
+	struct sonar_distance_s	                        _sonar;
+	struct laser_distance_s	                        _laser;
 
 	control::BlockParamFloat _manual_thr_min;
 	control::BlockParamFloat _manual_thr_max;
@@ -214,6 +214,9 @@ private:
 	bool _reset_pos_sp;
 	bool _reset_alt_sp;
 	bool _mode_auto;
+
+	bool _is_obstacle_avoiding;
+	bool _is_obstacle_avoiding_pre;
 
 	math::Vector<3> _pos;
 	math::Vector<3> _pos_sp;
@@ -335,7 +338,9 @@ MulticopterPositionControl::MulticopterPositionControl() :
 
 	_reset_pos_sp(true),
 	_reset_alt_sp(true),
-	_mode_auto(false)
+	_mode_auto(false),
+	_is_obstacle_avoiding(false),
+	_is_obstacle_avoiding_pre(false)
 {
 	memset(&_vehicle_status, 0, sizeof(_vehicle_status));
 	memset(&_att, 0, sizeof(_att));
@@ -665,115 +670,22 @@ MulticopterPositionControl::control_manual(float dt)
 	if (_control_mode.flag_control_position_enabled) {
 		/* move position setpoint with roll/pitch stick */
 		_sp_move_rate(0) = _manual.x;
-		_sp_move_rate(1) = _manual.y;
-		if(_manual.loiter_switch==3){
-			if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance_pos_mode)){
-				if(_laser.angle<-22.5f){
-					if(_manual.x <= 0.0f){
-						_sp_move_rate(0) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-					if(_manual.y >= 0.0f){
-						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}else if(_laser.angle<22.5f){
-					if(_manual.y >= 0.0f){
-						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}else if(_laser.angle<67.5f){
-					if(_manual.x >= 0.0f){
-						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-					if(_manual.y >= 0.0f){
-						_sp_move_rate(1) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}else if(_laser.angle<112.5f){
-					if(_manual.x >= 0.0f){
-						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-				}else if(_laser.angle<157.5f){
-					if(_manual.x >= 0.0f){
-						_sp_move_rate(0) = -1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-					if(_manual.y <= 0.0f){
-						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}else if(_laser.angle<202.5f){
-					if(_manual.y <= 0.0f){
-						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}else{
-					if(_manual.x <= 0.0f){
-						_sp_move_rate(0) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(0) = _manual.x;
-					}
-					if(_manual.y <= 0.0f){
-						_sp_move_rate(1) = 1.0f * (Laser_distance_pos_mode - _laser.min_distance) / (Laser_distance_pos_mode - 100.0f);
-					}else{
-						_sp_move_rate(1) = _manual.y;
-					}
-				}
-			}		
-		// }else{
-		// 	if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<200.0f)){
-		// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
-		// 			_sp_move_rate(0) = 0.0f;
-		// 		}else{
-		// 			if(_manual.x > 0.0f){
-		// 				_sp_move_rate(0) = 0.0f;
-		// 			}else{
-		// 				_sp_move_rate(0) = _manual.x;
-		// 			}
-		// 		}
-		// 	}else{
-		// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<200.0f)){
-		// 			if(_manual.x < 0.0f){
-		// 				_sp_move_rate(0) = 0.0f;
-		// 			}else{
-		// 				_sp_move_rate(0) = _manual.x;
-		// 			}
-		// 		}
-		// 	}
+		_sp_move_rate(1) = _manual.y;	
+	}
 
-		// 	if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<200.0f)){
-		// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
-		// 			_sp_move_rate(1) = 0.0f;
-		// 		}else{
-		// 			if(_manual.y > 0.0f){
-		// 				_sp_move_rate(1) = 0.0f;
-		// 			}else{	
-		// 				_sp_move_rate(1) = _manual.y;
-		// 			}
-		// 		}
-		// 	}else{
-		// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<200.0f)){
-		// 			if(_manual.y < 0.0f){
-		// 				_sp_move_rate(1) = 0.0f;
-		// 			}else{	
-		// 				_sp_move_rate(1) = _manual.y;
-		// 			}
-		// 		}	
-		// 	}
-		// }
+	//add by CJ for obstacle avoid
+	if(_manual.loiter_switch==3){
+		_is_obstacle_avoiding_pre = _is_obstacle_avoiding;
+		if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance)){
+			_is_obstacle_avoiding = true;
+		}else
+		{
+			_is_obstacle_avoiding = false;
 		}	
+	}
+	if(!_is_obstacle_avoiding && _is_obstacle_avoiding_pre)
+	{
+		_reset_pos_sp = true;
 	}
 
 	/* limit setpoint move rate */
@@ -1572,7 +1484,7 @@ MulticopterPositionControl::task_main()
 				}
 			}
 
-			if(_manual.loiter_switch == 3 && !_control_mode.flag_control_position_enabled){
+			if(_manual.loiter_switch == 3){
 				if((_laser.min_distance>50.0f)&&(_laser.min_distance<Laser_distance)){
 					if(_laser.angle<-22.5f){
 						_att_sp.pitch_body = -math::radians(Laser_P/((_laser.min_distance*_laser.min_distance/10000.0f)+0.05f));
@@ -1612,59 +1524,6 @@ MulticopterPositionControl::task_main()
 						_att_sp.roll_body  = -math::radians(25.0f);
 					}
 				}
-				// }else{
-				// 	if((_sonar.sonar_front>50.0f)&&(_sonar.sonar_front<Safe_distance)){
-				// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
-				// 			_att_sp.pitch_body = math::radians(sonar_P/((_sonar.sonar_front - _sonar.sonar_behind)*(_sonar.sonar_front - _sonar.sonar_behind)/10000.0f+0.05f));
-				// 		}else{
-				// 			_att_sp.pitch_body = math::radians(sonar_P/(_sonar.sonar_front*_sonar.sonar_front/10000.0f+0.05f));
-				// 		}
-				
-				// 		if(_att_sp.pitch_body > math::radians(20.0f)){
-				// 			_att_sp.pitch_body  = math::radians(20.0f);
-				// 		}
-				// 		if(_att_sp.pitch_body < -math::radians(20.0f)){
-				// 			_att_sp.pitch_body  = -math::radians(20.0f);
-				// 		}
-				// 	}else{
-				// 		if((_sonar.sonar_behind>50.0f)&&(_sonar.sonar_behind<Safe_distance)){
-				// 			_att_sp.pitch_body = -math::radians(sonar_P/(_sonar.sonar_behind*_sonar.sonar_behind/10000.0f+0.05f));
-				// 		}
-
-				// 		if(_att_sp.pitch_body > math::radians(20.0f)){
-				// 			_att_sp.pitch_body  = math::radians(20.0f);
-				// 		}
-				// 		if(_att_sp.pitch_body < -math::radians(20.0f)){
-				// 			_att_sp.pitch_body  = -math::radians(20.0f);
-				// 		}
-				// 	}
-
-				// 	if((_sonar.sonar_right>50.0f)&&(_sonar.sonar_right<Safe_distance)){
-				// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
-				// 			_att_sp.roll_body = -math::radians(sonar_P/((_sonar.sonar_right - _sonar.sonar_left)*(_sonar.sonar_right - _sonar.sonar_left)/10000.0f+0.05f));
-				// 		}else{
-				// 			_att_sp.roll_body = -math::radians(sonar_P/(_sonar.sonar_right*_sonar.sonar_right/10000.0f+0.05f));
-				// 		}
-
-				// 		if(_att_sp.roll_body > math::radians(20.0f)){
-				// 			_att_sp.roll_body  = math::radians(20.0f);
-				// 		}
-				// 		if(_att_sp.roll_body < -math::radians(20.0f)){
-				// 			_att_sp.roll_body  = -math::radians(20.0f);
-				// 		}
-				// 	}else{
-				// 		if((_sonar.sonar_left>50.0f)&&(_sonar.sonar_left<Safe_distance)){
-				// 			_att_sp.roll_body = math::radians(sonar_P/(_sonar.sonar_left*_sonar.sonar_left/10000.0f+0.05f));
-				// 		}
-
-				// 		if(_att_sp.roll_body > math::radians(20.0f)){
-				// 			_att_sp.roll_body  = math::radians(20.0f);
-				// 		}
-				// 		if(_att_sp.roll_body < -math::radians(20.0f)){
-				// 			_att_sp.roll_body  = -math::radians(20.0f);
-				// 		}
-				// 	}
-				// }
 			}
 
 			/* construct attitude setpoint rotation matrix */
